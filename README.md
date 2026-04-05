@@ -1,8 +1,8 @@
 # NPCterm39
 
-A headless, in-memory terminal emulator for AI agents, exposed via [MCP](https://modelcontextprotocol.io/) (Model Context Protocol). Written in Rust.
+A headless, in-memory terminal emulator for AI agents, exposed via [MCP](https://modelcontextprotocol.io/) (Model Context Protocol).
 
-NPCterm39 gives AI agents **full terminal access** -- the ability to spawn shells, run arbitrary commands, read screen output, send keystrokes, and interact with TUI applications. This is one of the most powerful capabilities you can grant an AI agent: it is effectively equivalent to giving it access to a computer.
+NPCterm39 gives AI agents **full terminal access**. The ability to spawn shells, run arbitrary commands, read screen output, send keystrokes, and interact with TUI applications. This is one of the most powerful capabilities you can grant an AI agent: it is effectively equivalent to giving it access to a computer.
 
 > **Use with precautions.** A terminal is an unrestricted execution environment. Any command the agent can type, the system will run. This includes installing software, modifying files, accessing the network, and anything else a shell user can do. Deploy NPCterm39 in sandboxed or controlled environments, and always apply the principle of least privilege. Do not expose it to untrusted agents without appropriate safeguards.
 
@@ -17,18 +17,11 @@ NPCterm39 gives AI agents **full terminal access** -- the ability to spawn shell
 - **Mouse, selection, and scroll support** for interacting with TUI applications
 - **Multiple concurrent terminals** with short 2-character IDs
 
-## Requirements
-
-- Rust 2024 edition (1.85+)
-- macOS (process state detection uses `ps` heuristics tuned for macOS)
-
-## Build
+## Install
 
 ```bash
-cargo build --release
+cargo build npcterm39
 ```
-
-The optimized binary is built with LTO and stripped symbols.
 
 ## Usage
 
@@ -40,7 +33,7 @@ NPCterm39 is an MCP server. It communicates over stdin/stdout using JSON-RPC. To
 {
   "mcpServers": {
     "npcterm39": {
-      "command": "/path/to/npcterm39"
+      "command": "npcterm39"
     }
   }
 }
@@ -65,9 +58,10 @@ NPCterm39 is an MCP server. It communicates over stdin/stdout using JSON-RPC. To
 | `terminal_select` | Select text on screen |
 | `terminal_scroll` | Scroll the terminal viewport |
 
-### Example: Yes, your AI can quit Vim
+### Example: Yes, your agent now can quit Vim
 
 ```jsonc
+// MCP Flow
 // 1. Create a terminal
 // -> terminal_create {}
 // <- {"id": "a0", "cols": 80, "rows": 24}
@@ -91,7 +85,7 @@ NPCterm39 is an MCP server. It communicates over stdin/stdout using JSON-RPC. To
 // Back at the shell. First try.
 ```
 
-NPCterm39 gives AI agents full TUI interaction -- opening, navigating, and closing interactive programs like `vim`, `htop`, `less`, or any curses-based application.
+NPCterm39 gives AI agents full TUI interaction: opening, navigating, and closing interactive programs like `vim`, `htop`, `less`, or any curses-based application.
 
 ## Architecture
 
@@ -125,8 +119,5 @@ NPCterm39 provides **unrestricted shell access** to whatever agent connects to i
 
 ## License
 
-MIT
+Apache 2
 
-## Author
-
-Alejandro Quintanar

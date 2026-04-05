@@ -1,8 +1,8 @@
 [package]
-name = "npcterm39"
+name = "npcterm"
 version = "1.0.0"
 edition = "2024"
-license = "MIT"
+license = "Apache-2.0"
 authors = ["Alejandro Quintanar"]
 description = "A headless, in-memory terminal emulator for AI agents, exposed via MCP"
 
