@@ -26,7 +26,8 @@ pub struct TerminalRegistry {
 }
 
 impl TerminalRegistry {
-    const ID_CHARS: &[u8] = b"abcdefghijklmnopqrstuvwxyz0123456789";
+    const FIRST_CHARS: &[u8] = b"abcdefghijklmnopqrstuvwxyz";
+    const SECOND_CHARS: &[u8] = b"0123456789abcdefghijklmnopqrstuvwxyz";
 
     pub fn new(max_instances: usize) -> Self {
         Self {
@@ -37,14 +38,14 @@ impl TerminalRegistry {
     }
 
     fn next_short_id(&mut self) -> String {
-        let base = Self::ID_CHARS.len();
+        let second_len = Self::SECOND_CHARS.len();
         loop {
-            let a = self.next_id / base;
-            let b = self.next_id % base;
+            let a = self.next_id / second_len;
+            let b = self.next_id % second_len;
             self.next_id += 1;
             let mut id = String::with_capacity(2);
-            id.push(Self::ID_CHARS[a % base] as char);
-            id.push(Self::ID_CHARS[b] as char);
+            id.push(Self::FIRST_CHARS[a % Self::FIRST_CHARS.len()] as char);
+            id.push(Self::SECOND_CHARS[b] as char);
             if !self.instances.contains_key(&id) {
                 return id;
             }
