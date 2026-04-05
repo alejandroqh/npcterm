@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/logo.png" alt="NPCterm39">
+  <img src="docs/logo.png" alt="NPCterm39"  width="400">
 </p>
 
 # NPCterm39
