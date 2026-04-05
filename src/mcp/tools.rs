@@ -108,6 +108,15 @@ pub fn tool_definitions() -> Vec<ToolDef> {
             }),
         },
         ToolDef {
+            name: "terminal_show_screen".into(),
+            description: "Show terminal screen as clean text (no coordinates, optimized for human display)".into(),
+            input_schema: json!({
+                "type": "object",
+                "properties": { "id": { "type": "string" } },
+                "required": ["id"]
+            }),
+        },
+        ToolDef {
             name: "terminal_read_rows".into(),
             description: "Read specific rows from terminal screen".into(),
             input_schema: json!({
@@ -296,6 +305,14 @@ pub fn handle_tool_call(
                 Err(e) => return e,
             };
             ToolCallResult::text(instance.read_screen())
+        }
+
+        "terminal_show_screen" => {
+            let instance = match get_instance(registry, args) {
+                Ok(i) => i,
+                Err(e) => return e,
+            };
+            ToolCallResult::text(instance.show_screen())
         }
 
         "terminal_read_rows" => {

@@ -42,6 +42,7 @@ impl EventQueue {
         self.events.len()
     }
 
+    #[allow(dead_code)]
     pub fn is_empty(&self) -> bool {
         self.events.is_empty()
     }

@@ -58,6 +58,7 @@ impl Selection {
         }
     }
 
+    #[allow(dead_code)]
     pub fn update_end(&mut self, end: Position) {
         self.end = end;
     }
@@ -67,6 +68,7 @@ impl Selection {
     }
 
     /// Check if a position is within the selection
+    #[allow(dead_code)]
     pub fn contains(&self, pos: Position) -> bool {
         let (start, end) = self.normalized_bounds();
 
@@ -138,6 +140,7 @@ impl Selection {
     }
 
     /// Expand selection to line boundaries
+    #[allow(dead_code)]
     pub fn expand_to_line(&mut self, width: u16) {
         self.selection_type = SelectionType::Line;
         let (start, end) = self.normalized_bounds();
@@ -145,6 +148,7 @@ impl Selection {
         self.end = Position::new(width.saturating_sub(1), end.row);
     }
 
+    #[allow(dead_code)]
     pub fn is_empty(&self) -> bool {
         self.start == self.end
     }

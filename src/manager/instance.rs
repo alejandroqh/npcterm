@@ -1,4 +1,3 @@
-use std::fmt::Write;
 use std::time::Instant;
 
 use crate::input::keys::Key;
@@ -196,9 +195,18 @@ impl TerminalInstance {
     pub fn read_screen(&mut self) -> String {
         self.emulator.grid.take_dirty_rows();
         if self.scroll_offset > 0 {
-            self.read_scrollback_screen()
+            self.render_scrollback(true)
         } else {
             reader::read_screen_text(&self.emulator.grid)
+        }
+    }
+
+    pub fn show_screen(&mut self) -> String {
+        self.emulator.grid.take_dirty_rows();
+        if self.scroll_offset > 0 {
+            self.render_scrollback(false)
+        } else {
+            reader::show_screen_text(&self.emulator.grid)
         }
     }
 
@@ -356,37 +364,24 @@ impl TerminalInstance {
         text
     }
 
-    fn read_scrollback_screen(&self) -> String {
+    fn render_scrollback(&self, with_coords: bool) -> String {
         let cols = self.cols();
         let rows = self.rows();
         let scrollback = self.emulator.grid.get_scrollback();
-        let scrollback_len = scrollback.len();
         let screen = self.emulator.grid.get_rows();
 
-        let mut output = String::with_capacity((cols + 4) * (rows + 3));
+        let extra = if with_coords { cols + 4 } else { cols + 1 };
+        let header_rows = if with_coords { 3 } else { 0 };
+        let mut output = String::with_capacity(extra * (rows + header_rows));
 
-        reader::write_column_header(&mut output, cols);
-
-        let start_line = scrollback_len.saturating_sub(self.scroll_offset);
-
-        for y in 0..rows {
-            let line_idx = start_line + y;
-            let _ = write!(output, "{:02} ", y);
-
-            if line_idx < scrollback_len {
-                for cell in scrollback[line_idx].iter().take(cols) {
-                    output.push(cell.c);
-                }
-            } else {
-                let screen_idx = line_idx - scrollback_len;
-                if let Some(row) = screen.get(screen_idx) {
-                    for cell in row.iter().take(cols) {
-                        output.push(cell.c);
-                    }
-                }
-            }
-            output.push('\n');
+        if with_coords {
+            reader::write_column_header(&mut output, cols);
         }
+
+        reader::render_scrollback(
+            &mut output, scrollback, screen,
+            self.scroll_offset, cols, rows, with_coords,
+        );
 
         output
     }

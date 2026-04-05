@@ -69,6 +69,7 @@ impl Default for TerminalCell {
 }
 
 impl TerminalCell {
+    #[allow(dead_code)]
     pub fn reset(&mut self) {
         self.c = ' ';
         self.fg = Color::Default;

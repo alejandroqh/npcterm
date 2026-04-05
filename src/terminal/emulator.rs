@@ -203,6 +203,7 @@ impl TerminalEmulator {
     }
 
     /// Send pasted text respecting bracketed paste mode
+    #[allow(dead_code)]
     pub fn send_paste(&mut self, text: &str) -> std::io::Result<()> {
         if self.grid.bracketed_paste_mode {
             self.write_input(b"\x1b[200~")?;
@@ -215,6 +216,7 @@ impl TerminalEmulator {
     }
 
     /// Check if child process is still alive
+    #[allow(dead_code)]
     pub fn is_alive(&mut self) -> bool {
         if self.exit_code.is_some() {
             return false;
@@ -229,6 +231,7 @@ impl TerminalEmulator {
     }
 
     /// Get child process PID
+    #[allow(dead_code)]
     pub fn get_pid(&self) -> Option<u32> {
         self.child.process_id()
     }

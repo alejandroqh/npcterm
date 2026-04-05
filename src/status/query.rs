@@ -1,7 +1,5 @@
 use serde::Serialize;
 
-use crate::status::events::TerminalEvent;
-
 /// Terminal process state
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "snake_case")]

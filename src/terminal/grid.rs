@@ -66,7 +66,7 @@ pub struct TerminalGrid {
     /// Generation counter - incremented on content changes
     generation: u64,
 
-    // === AiTerm39 additions ===
+    // === NpcTerm39 additions ===
     /// Track which rows changed since last read
     dirty_rows: Vec<bool>,
     /// Global dirty flag
@@ -145,6 +145,7 @@ impl TerminalGrid {
         self.scrollback.len()
     }
 
+    #[allow(dead_code)]
     pub fn generation(&self) -> u64 {
         self.generation
     }
@@ -293,6 +294,7 @@ impl TerminalGrid {
         self.rows.get(y)?.get(x)
     }
 
+    #[allow(dead_code)]
     pub fn get_render_cell(&self, x: usize, y: usize) -> Option<&TerminalCell> {
         if let Some(snapshot) = &self.sync_snapshot {
             snapshot.get(y)?.get(x)
@@ -301,6 +303,7 @@ impl TerminalGrid {
         }
     }
 
+    #[allow(dead_code)]
     pub fn get_render_cursor(&self) -> &Cursor {
         if let Some(cursor) = &self.sync_cursor_snapshot {
             cursor
@@ -313,6 +316,7 @@ impl TerminalGrid {
         self.rows.get_mut(y)?.get_mut(x)
     }
 
+    #[allow(dead_code)]
     pub fn get_scrollback_line(&self, idx: usize) -> Option<&Vec<TerminalCell>> {
         self.scrollback.get(idx)
     }
@@ -824,6 +828,7 @@ impl TerminalGrid {
         }
     }
 
+    #[allow(dead_code)]
     pub fn set_cursor(&mut self, x: usize, y: usize, visible: bool) {
         self.cursor.x = x.min(self.cols.saturating_sub(1));
         self.cursor.y = y.min(self.rows_count.saturating_sub(1));

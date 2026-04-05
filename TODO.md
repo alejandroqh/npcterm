@@ -1,4 +1,4 @@
-# AiTerm39 — Implementation TODO
+# NpcTerm39 — Implementation TODO
 
 Headless, in-memory terminal emulator for AI agents, exposed via MCP. Written in Rust.
 Reuses terminal emulation code from term39 (`../q39/term39/`).

@@ -72,6 +72,7 @@ impl TerminalRegistry {
         Ok(id)
     }
 
+    #[allow(dead_code)]
     pub fn get(&self, id: &str) -> Option<&TerminalInstance> {
         self.instances.get(id)
     }
