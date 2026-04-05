@@ -3,7 +3,7 @@ use std::fmt;
 use unicode_width::UnicodeWidthChar;
 
 use super::cell::{
-    CellAttributes, CharacterSet, Color, Cursor, NamedColor, SavedCursorState,
+    CellAttributes, CharacterSet, Color, Cursor, SavedCursorState,
     TerminalCell,
 };
 
@@ -564,11 +564,7 @@ impl TerminalGrid {
         let bg = self.current_bg;
         for row in &mut self.rows {
             for cell in row {
-                cell.c = ' ';
-                cell.fg = Color::Named(NamedColor::White);
-                cell.bg = bg;
-                cell.attrs = CellAttributes::default();
-                cell.wide = false;
+                cell.erase(bg);
             }
         }
         self.generation = self.generation.wrapping_add(1);
@@ -579,11 +575,7 @@ impl TerminalGrid {
         let bg = self.current_bg;
         if let Some(row) = self.rows.get_mut(self.cursor.y) {
             for cell in row {
-                cell.c = ' ';
-                cell.fg = Color::Named(NamedColor::White);
-                cell.bg = bg;
-                cell.attrs = CellAttributes::default();
-                cell.wide = false;
+                cell.erase(bg);
             }
             self.generation = self.generation.wrapping_add(1);
             self.mark_dirty(self.cursor.y);
@@ -595,11 +587,7 @@ impl TerminalGrid {
         if let Some(row) = self.rows.get_mut(self.cursor.y) {
             for x in self.cursor.x..self.cols {
                 if let Some(cell) = row.get_mut(x) {
-                    cell.c = ' ';
-                    cell.fg = Color::Named(NamedColor::White);
-                    cell.bg = bg;
-                    cell.attrs = CellAttributes::default();
-                    cell.wide = false;
+                    cell.erase(bg);
                 }
             }
             self.generation = self.generation.wrapping_add(1);
@@ -612,11 +600,7 @@ impl TerminalGrid {
         if let Some(row) = self.rows.get_mut(self.cursor.y) {
             for x in 0..=self.cursor.x {
                 if let Some(cell) = row.get_mut(x) {
-                    cell.c = ' ';
-                    cell.fg = Color::Named(NamedColor::White);
-                    cell.bg = bg;
-                    cell.attrs = CellAttributes::default();
-                    cell.wide = false;
+                    cell.erase(bg);
                 }
             }
             self.generation = self.generation.wrapping_add(1);
@@ -630,11 +614,7 @@ impl TerminalGrid {
         for y in (self.cursor.y + 1)..self.rows_count {
             if let Some(row) = self.rows.get_mut(y) {
                 for cell in row {
-                    cell.c = ' ';
-                    cell.fg = Color::Named(NamedColor::White);
-                    cell.bg = bg;
-                    cell.attrs = CellAttributes::default();
-                    cell.wide = false;
+                    cell.erase(bg);
                 }
             }
             self.mark_dirty(y);
@@ -647,11 +627,7 @@ impl TerminalGrid {
         for y in 0..self.cursor.y {
             if let Some(row) = self.rows.get_mut(y) {
                 for cell in row {
-                    cell.c = ' ';
-                    cell.fg = Color::Named(NamedColor::White);
-                    cell.bg = bg;
-                    cell.attrs = CellAttributes::default();
-                    cell.wide = false;
+                    cell.erase(bg);
                 }
             }
             self.mark_dirty(y);
@@ -677,11 +653,7 @@ impl TerminalGrid {
             let bg = self.current_bg;
             for x in (end - n)..end {
                 if let Some(cell) = row.get_mut(x) {
-                    cell.c = ' ';
-                    cell.fg = Color::Named(NamedColor::White);
-                    cell.bg = bg;
-                    cell.attrs = CellAttributes::default();
-                    cell.wide = false;
+                    cell.erase(bg);
                 }
             }
             self.generation = self.generation.wrapping_add(1);
@@ -706,11 +678,7 @@ impl TerminalGrid {
             let bg = self.current_bg;
             for x in start..(start + n).min(end) {
                 if let Some(cell) = row.get_mut(x) {
-                    cell.c = ' ';
-                    cell.fg = Color::Named(NamedColor::White);
-                    cell.bg = bg;
-                    cell.attrs = CellAttributes::default();
-                    cell.wide = false;
+                    cell.erase(bg);
                 }
             }
             self.generation = self.generation.wrapping_add(1);
@@ -723,11 +691,7 @@ impl TerminalGrid {
         if let Some(row) = self.rows.get_mut(self.cursor.y) {
             for x in self.cursor.x..(self.cursor.x + n).min(self.cols) {
                 if let Some(cell) = row.get_mut(x) {
-                    cell.c = ' ';
-                    cell.fg = Color::Named(NamedColor::White);
-                    cell.bg = bg;
-                    cell.attrs = CellAttributes::default();
-                    cell.wide = false;
+                    cell.erase(bg);
                 }
             }
             self.generation = self.generation.wrapping_add(1);
@@ -771,12 +735,7 @@ impl TerminalGrid {
     }
 
     pub fn save_cursor_position(&mut self) {
-        self.saved_cursor = Some(SavedCursorState {
-            cursor: self.cursor,
-            attrs: self.current_attrs,
-            fg: self.current_fg,
-            bg: self.current_bg,
-        });
+        self.save_cursor();
     }
 
     pub fn restore_cursor_position(&mut self) {

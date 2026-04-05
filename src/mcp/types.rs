@@ -14,7 +14,7 @@ pub struct JsonRpcRequest {
 /// JSON-RPC response
 #[derive(Debug, Serialize)]
 pub struct JsonRpcResponse {
-    pub jsonrpc: String,
+    pub jsonrpc: &'static str,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub id: Option<Value>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -32,7 +32,7 @@ pub struct JsonRpcError {
 impl JsonRpcResponse {
     pub fn success(id: Option<Value>, result: Value) -> Self {
         Self {
-            jsonrpc: "2.0".to_string(),
+            jsonrpc: "2.0",
             id,
             result: Some(result),
             error: None,
@@ -41,36 +41,12 @@ impl JsonRpcResponse {
 
     pub fn error(id: Option<Value>, code: i32, message: String) -> Self {
         Self {
-            jsonrpc: "2.0".to_string(),
+            jsonrpc: "2.0",
             id,
             result: None,
             error: Some(JsonRpcError { code, message }),
         }
     }
-}
-
-/// MCP Initialize result
-#[derive(Debug, Serialize)]
-pub struct InitializeResult {
-    #[serde(rename = "protocolVersion")]
-    pub protocol_version: String,
-    pub capabilities: Capabilities,
-    #[serde(rename = "serverInfo")]
-    pub server_info: ServerInfo,
-}
-
-#[derive(Debug, Serialize)]
-pub struct Capabilities {
-    pub tools: ToolsCapability,
-}
-
-#[derive(Debug, Serialize)]
-pub struct ToolsCapability {}
-
-#[derive(Debug, Serialize)]
-pub struct ServerInfo {
-    pub name: String,
-    pub version: String,
 }
 
 /// MCP Tool definition
@@ -80,12 +56,6 @@ pub struct ToolDef {
     pub description: String,
     #[serde(rename = "inputSchema")]
     pub input_schema: Value,
-}
-
-/// MCP tools/list result
-#[derive(Debug, Serialize)]
-pub struct ToolsListResult {
-    pub tools: Vec<ToolDef>,
 }
 
 /// MCP tools/call result
@@ -99,7 +69,7 @@ pub struct ToolCallResult {
 #[derive(Debug, Serialize)]
 pub struct ToolContent {
     #[serde(rename = "type")]
-    pub content_type: String,
+    pub content_type: &'static str,
     pub text: String,
 }
 
@@ -107,7 +77,7 @@ impl ToolCallResult {
     pub fn text(text: String) -> Self {
         Self {
             content: vec![ToolContent {
-                content_type: "text".to_string(),
+                content_type: "text",
                 text,
             }],
             is_error: false,
@@ -117,7 +87,7 @@ impl ToolCallResult {
     pub fn error(message: String) -> Self {
         Self {
             content: vec![ToolContent {
-                content_type: "text".to_string(),
+                content_type: "text",
                 text: message,
             }],
             is_error: true,

@@ -5,11 +5,11 @@ use serde::Serialize;
 #[derive(Debug, Serialize)]
 pub struct CellInfo {
     pub c: String,
-    #[serde(skip_serializing_if = "is_default_color")]
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub fg: Option<ColorInfo>,
-    #[serde(skip_serializing_if = "is_default_color")]
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub bg: Option<ColorInfo>,
-    #[serde(skip_serializing_if = "is_default_attrs")]
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub attrs: Option<AttrsInfo>,
     #[serde(skip_serializing_if = "std::ops::Not::not")]
     pub wide: bool,
@@ -44,14 +44,6 @@ pub struct AttrsInfo {
     pub hidden: bool,
     #[serde(skip_serializing_if = "std::ops::Not::not")]
     pub strikethrough: bool,
-}
-
-fn is_default_color(c: &Option<ColorInfo>) -> bool {
-    c.is_none()
-}
-
-fn is_default_attrs(a: &Option<AttrsInfo>) -> bool {
-    a.is_none()
 }
 
 impl From<&Color> for ColorInfo {

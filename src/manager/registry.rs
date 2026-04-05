@@ -2,6 +2,8 @@ use std::collections::HashMap;
 
 use serde::Serialize;
 
+use crate::status::query::TerminalState;
+
 use super::instance::TerminalInstance;
 
 /// Summary info for a terminal instance
@@ -10,7 +12,7 @@ pub struct TerminalInfo {
     pub id: String,
     pub cols: usize,
     pub rows: usize,
-    pub state: String,
+    pub state: TerminalState,
     pub created_at: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub running_command: Option<String>,
@@ -30,7 +32,6 @@ impl TerminalRegistry {
         }
     }
 
-    /// Create a new terminal instance
     pub fn create(
         &mut self,
         cols: usize,
@@ -52,37 +53,32 @@ impl TerminalRegistry {
         Ok(id)
     }
 
-    /// Get a terminal instance by ID
     pub fn get(&self, id: &str) -> Option<&TerminalInstance> {
         self.instances.get(id)
     }
 
-    /// Get a mutable terminal instance by ID
     pub fn get_mut(&mut self, id: &str) -> Option<&mut TerminalInstance> {
         self.instances.get_mut(id)
     }
 
-    /// Destroy a terminal instance
     pub fn destroy(&mut self, id: &str) -> bool {
         self.instances.remove(id).is_some()
     }
 
-    /// List all terminal instances
     pub fn list(&self) -> Vec<TerminalInfo> {
         self.instances
             .values()
             .map(|inst| TerminalInfo {
                 id: inst.id.clone(),
-                cols: inst.cols,
-                rows: inst.rows,
-                state: inst.state().to_string(),
+                cols: inst.cols(),
+                rows: inst.rows(),
+                state: inst.state(),
                 created_at: inst.created_at().to_rfc3339(),
                 running_command: inst.running_command(),
             })
             .collect()
     }
 
-    /// Tick all instances (process PTY output)
     pub fn tick_all(&mut self) {
         for instance in self.instances.values_mut() {
             instance.tick();

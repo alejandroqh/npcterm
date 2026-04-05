@@ -1,3 +1,4 @@
+use std::fmt::Write;
 use std::time::Instant;
 
 use crate::input::keys::Key;
@@ -7,6 +8,9 @@ use crate::status::events::{EventQueue, TerminalEvent};
 use crate::status::query::{TerminalState, TerminalStatus};
 use crate::terminal::emulator::TerminalEmulator;
 use crate::terminal::selection::{Position, Selection};
+
+/// Throttle interval for `get_foreground_process_name` (expensive: spawns ps)
+const PROCESS_NAME_CACHE_MS: u64 = 500;
 
 /// A fully self-contained terminal instance (isolation for future tabs)
 pub struct TerminalInstance {
@@ -19,8 +23,9 @@ pub struct TerminalInstance {
     process_state: TerminalState,
     prev_state: TerminalState,
     created_at: chrono::DateTime<chrono::Utc>,
-    pub cols: usize,
-    pub rows: usize,
+    /// Cached foreground process name (throttled to avoid spawning ps every tick)
+    cached_process_name: Option<String>,
+    last_process_name_check: Option<Instant>,
 }
 
 impl TerminalInstance {
@@ -42,9 +47,17 @@ impl TerminalInstance {
             process_state: TerminalState::Running,
             prev_state: TerminalState::Running,
             created_at: chrono::Utc::now(),
-            cols,
-            rows,
+            cached_process_name: None,
+            last_process_name_check: None,
         })
+    }
+
+    pub fn cols(&self) -> usize {
+        self.emulator.grid.cols()
+    }
+
+    pub fn rows(&self) -> usize {
+        self.emulator.grid.rows()
     }
 
     /// Process PTY output and update internal state. Call periodically.
@@ -52,24 +65,27 @@ impl TerminalInstance {
         let was_alive = self.process_state != TerminalState::Exited;
         let running = self.emulator.process_output();
 
-        // Check for bell
         if self.emulator.grid.bell_pending {
             self.emulator.grid.bell_pending = false;
             self.event_queue.push(TerminalEvent::Bell);
         }
 
-        // Check dirty rows for screen changed event
-        let dirty = self.emulator.grid.peek_dirty_rows();
-        if !dirty.is_empty() {
-            self.event_queue
-                .push(TerminalEvent::ScreenChanged { changed_rows: dirty });
+        // Only emit ScreenChanged when new dirty rows appear since last event
+        if self.emulator.grid.is_dirty() {
+            let dirty = self.emulator.grid.take_dirty_rows();
+            if !dirty.is_empty() {
+                self.event_queue
+                    .push(TerminalEvent::ScreenChanged { changed_rows: dirty });
+            }
         }
 
-        // Detect process state
-        let shell_name = self.emulator.get_foreground_process_name();
-        let is_shell = shell_name
+        // Throttled process name lookup
+        self.refresh_process_name();
+
+        let is_shell = self
+            .cached_process_name
             .as_ref()
-            .is_some_and(|n| ["bash", "zsh", "sh", "fish", "dash", "tcsh", "csh"].contains(&n.as_str()));
+            .is_some_and(|n| matches!(n.as_str(), "bash" | "zsh" | "sh" | "fish" | "dash" | "tcsh" | "csh"));
 
         let last_output_ms = self
             .emulator
@@ -78,12 +94,11 @@ impl TerminalInstance {
 
         let new_state = TerminalState::detect(running, self.emulator.exit_code, last_output_ms, is_shell);
 
-        // Emit state change event
         if new_state != self.prev_state {
             self.event_queue
                 .push(TerminalEvent::ProcessStateChanged {
-                    old: self.prev_state.to_string(),
-                    new: new_state.to_string(),
+                    old: self.prev_state,
+                    new: new_state,
                 });
 
             if new_state == TerminalState::Exited && was_alive {
@@ -109,6 +124,17 @@ impl TerminalInstance {
         self.emulator.flush_input()
     }
 
+    /// Send a raw key without flushing (for batch operations)
+    pub fn send_key_no_flush(&mut self, key: Key) -> std::io::Result<()> {
+        let seq = key.to_escape_sequence(self.emulator.grid.application_cursor_keys);
+        self.emulator.write_input(&seq)
+    }
+
+    /// Flush buffered input
+    pub fn flush_input(&mut self) -> std::io::Result<()> {
+        self.emulator.flush_input()
+    }
+
     /// Send a mouse action
     pub fn send_mouse(&mut self, action: MouseAction) -> MouseResult {
         let has_mouse_tracking = self.emulator.grid.mouse_normal_tracking
@@ -118,38 +144,13 @@ impl TerminalInstance {
 
         match action {
             MouseAction::LeftClick { col, row } => {
-                self.mouse_state.set(col, row);
-                if has_mouse_tracking && uses_sgr {
-                    let press = mouse::sgr_mouse_press(0, col, row);
-                    let _ = self.emulator.write_input(&press);
-                    let release = mouse::sgr_mouse_release(0, col, row);
-                    let _ = self.emulator.write_input(&release);
-                    let _ = self.emulator.flush_input();
-                }
-                MouseResult {
-                    mouse_col: col,
-                    mouse_row: row,
-                    selected_text: None,
-                }
+                self.send_mouse_click(0, col, row, has_mouse_tracking && uses_sgr)
             }
             MouseAction::RightClick { col, row } => {
-                self.mouse_state.set(col, row);
-                if has_mouse_tracking && uses_sgr {
-                    let press = mouse::sgr_mouse_press(2, col, row);
-                    let _ = self.emulator.write_input(&press);
-                    let release = mouse::sgr_mouse_release(2, col, row);
-                    let _ = self.emulator.write_input(&release);
-                    let _ = self.emulator.flush_input();
-                }
-                MouseResult {
-                    mouse_col: col,
-                    mouse_row: row,
-                    selected_text: None,
-                }
+                self.send_mouse_click(2, col, row, has_mouse_tracking && uses_sgr)
             }
             MouseAction::DoubleClick { col, row } => {
                 self.mouse_state.set(col, row);
-                // Select word at position
                 let mut sel = Selection::new(
                     Position::new(col, row),
                     crate::terminal::selection::SelectionType::Word,
@@ -160,11 +161,8 @@ impl TerminalInstance {
                         .map(|c| c.c)
                 });
                 sel.complete();
-
-                // Extract selected text
                 let text = self.extract_selection_text(&sel);
                 self.selection = Some(sel);
-
                 MouseResult {
                     mouse_col: col,
                     mouse_row: row,
@@ -173,19 +171,12 @@ impl TerminalInstance {
             }
             MouseAction::MoveTo { col, row } => {
                 self.mouse_state.set(col, row);
-                if has_mouse_tracking
-                    && uses_sgr
-                    && self.emulator.grid.mouse_any_event_tracking
-                {
+                if has_mouse_tracking && uses_sgr && self.emulator.grid.mouse_any_event_tracking {
                     let mv = mouse::sgr_mouse_move(col, row);
                     let _ = self.emulator.write_input(&mv);
                     let _ = self.emulator.flush_input();
                 }
-                MouseResult {
-                    mouse_col: col,
-                    mouse_row: row,
-                    selected_text: None,
-                }
+                MouseResult { mouse_col: col, mouse_row: row, selected_text: None }
             }
             MouseAction::GetPosition => MouseResult {
                 mouse_col: self.mouse_state.col,
@@ -194,18 +185,12 @@ impl TerminalInstance {
             },
             MouseAction::SetPosition { col, row } => {
                 self.mouse_state.set(col, row);
-                MouseResult {
-                    mouse_col: col,
-                    mouse_row: row,
-                    selected_text: None,
-                }
+                MouseResult { mouse_col: col, mouse_row: row, selected_text: None }
             }
         }
     }
 
-    /// Read full screen with coordinate overlay
     pub fn read_screen(&mut self) -> String {
-        // Clear dirty tracking on read
         self.emulator.grid.take_dirty_rows();
         if self.scroll_offset > 0 {
             self.read_scrollback_screen()
@@ -214,25 +199,26 @@ impl TerminalInstance {
         }
     }
 
-    /// Read specific rows
     pub fn read_rows(&self, start: usize, end: usize) -> String {
         reader::read_rows_text(&self.emulator.grid, start, end)
     }
 
-    /// Read rectangular region
     pub fn read_region(&self, col1: usize, row1: usize, col2: usize, row2: usize) -> String {
         reader::read_region_text(&self.emulator.grid, col1, row1, col2, row2)
     }
 
-    /// Get lightweight status
     pub fn get_status(&self, last_n: usize) -> TerminalStatus {
         let last_lines = reader::last_n_lines(&self.emulator.grid, last_n);
-        let dirty_rows = self.emulator.grid.peek_dirty_rows();
+        let dirty_rows = if self.emulator.grid.is_dirty() {
+            self.emulator.grid.peek_dirty_rows()
+        } else {
+            Vec::new()
+        };
 
         TerminalStatus {
             state: self.process_state,
             exit_code: self.emulator.exit_code,
-            running_command: self.emulator.get_foreground_process_name(),
+            running_command: self.cached_process_name.clone(),
             last_lines,
             cursor_pos: (self.emulator.grid.cursor.x, self.emulator.grid.cursor.y),
             cursor_visible: self.emulator.grid.cursor.visible,
@@ -240,17 +226,15 @@ impl TerminalInstance {
             dirty: self.emulator.grid.is_dirty(),
             changed_rows: dirty_rows,
             pending_events: self.event_queue.len(),
-            size: (self.cols, self.rows),
+            size: (self.cols(), self.rows()),
             scrollback_lines: self.emulator.grid.scrollback_len(),
         }
     }
 
-    /// Poll and drain events
     pub fn poll_events(&mut self) -> Vec<TerminalEvent> {
         self.event_queue.drain()
     }
 
-    /// Select text by range and return it
     pub fn select_range(
         &mut self,
         start_col: usize,
@@ -267,38 +251,30 @@ impl TerminalInstance {
         text
     }
 
-    /// Scroll page up
     pub fn scroll_page_up(&mut self) -> usize {
         let max = self.emulator.grid.scrollback_len();
-        self.scroll_offset = (self.scroll_offset + self.rows).min(max);
+        self.scroll_offset = (self.scroll_offset + self.rows()).min(max);
         self.scroll_offset
     }
 
-    /// Scroll page down
     pub fn scroll_page_down(&mut self) -> usize {
-        self.scroll_offset = self.scroll_offset.saturating_sub(self.rows);
+        self.scroll_offset = self.scroll_offset.saturating_sub(self.rows());
         self.scroll_offset
     }
 
-    /// Search scrollback for text, jump to page containing it
     pub fn scroll_to_text(&mut self, text: &str) -> (usize, bool) {
         let scrollback = self.emulator.grid.get_scrollback();
         let text_lower = text.to_lowercase();
 
-        // Search from most recent scrollback line backwards
         for (i, line) in scrollback.iter().enumerate().rev() {
             let line_text: String = line.iter().map(|c| c.c).collect();
             if line_text.to_lowercase().contains(&text_lower) {
-                // Calculate scroll offset to show this line
-                let scrollback_len = scrollback.len();
-                self.scroll_offset = scrollback_len - i;
+                self.scroll_offset = scrollback.len() - i;
                 return (self.scroll_offset, true);
             }
         }
 
-        // Also search visible screen
-        let screen = self.emulator.grid.get_rows();
-        for line in screen {
+        for line in self.emulator.grid.get_rows() {
             let line_text: String = line.iter().map(|c| c.c).collect();
             if line_text.to_lowercase().contains(&text_lower) {
                 self.scroll_offset = 0;
@@ -318,27 +294,44 @@ impl TerminalInstance {
     }
 
     pub fn running_command(&self) -> Option<String> {
-        self.emulator.get_foreground_process_name()
+        self.cached_process_name.clone()
     }
 
     // --- Private helpers ---
+
+    fn refresh_process_name(&mut self) {
+        let should_refresh = self
+            .last_process_name_check
+            .map(|t| t.elapsed().as_millis() as u64 >= PROCESS_NAME_CACHE_MS)
+            .unwrap_or(true);
+
+        if should_refresh {
+            self.cached_process_name = self.emulator.get_foreground_process_name();
+            self.last_process_name_check = Some(Instant::now());
+        }
+    }
+
+    fn send_mouse_click(&mut self, button: u8, col: u16, row: u16, send_sgr: bool) -> MouseResult {
+        self.mouse_state.set(col, row);
+        if send_sgr {
+            let press = mouse::sgr_mouse_press(button, col, row);
+            let _ = self.emulator.write_input(&press);
+            let release = mouse::sgr_mouse_release(button, col, row);
+            let _ = self.emulator.write_input(&release);
+            let _ = self.emulator.flush_input();
+        }
+        MouseResult { mouse_col: col, mouse_row: row, selected_text: None }
+    }
 
     fn extract_selection_text(&self, sel: &Selection) -> String {
         let (start, end) = sel.normalized_bounds();
         let mut text = String::new();
         let grid = &self.emulator.grid;
+        let cols = self.cols();
 
         for row in start.row..=end.row {
-            let col_start = if row == start.row {
-                start.col as usize
-            } else {
-                0
-            };
-            let col_end = if row == end.row {
-                end.col as usize + 1
-            } else {
-                self.cols
-            };
+            let col_start = if row == start.row { start.col as usize } else { 0 };
+            let col_end = if row == end.row { end.col as usize + 1 } else { cols };
 
             for col in col_start..col_end {
                 if let Some(cell) = grid.get_cell(col, row as usize) {
@@ -349,63 +342,40 @@ impl TerminalInstance {
             }
 
             if row != end.row {
-                // Trim trailing whitespace per line
-                while text.ends_with(' ') {
-                    text.pop();
-                }
+                let trimmed = text.trim_end_matches(' ').len();
+                text.truncate(trimmed);
                 text.push('\n');
             }
         }
 
-        // Trim trailing whitespace on last line
-        while text.ends_with(' ') {
-            text.pop();
-        }
-
+        let trimmed = text.trim_end_matches(' ').len();
+        text.truncate(trimmed);
         text
     }
 
     fn read_scrollback_screen(&self) -> String {
-        let cols = self.cols;
-        let rows = self.rows;
+        let cols = self.cols();
+        let rows = self.rows();
         let scrollback = self.emulator.grid.get_scrollback();
         let scrollback_len = scrollback.len();
+        let screen = self.emulator.grid.get_rows();
 
-        let mut output = String::new();
+        let mut output = String::with_capacity((cols + 4) * (rows + 3));
 
-        // Column headers
-        output.push_str("   ");
-        for c in 0..cols {
-            output.push(char::from(b'0' + (c / 100 % 10) as u8));
-        }
-        output.push('\n');
-        output.push_str("   ");
-        for c in 0..cols {
-            output.push(char::from(b'0' + (c / 10 % 10) as u8));
-        }
-        output.push('\n');
-        output.push_str("   ");
-        for c in 0..cols {
-            output.push(char::from(b'0' + (c % 10) as u8));
-        }
-        output.push('\n');
+        reader::write_column_header(&mut output, cols);
 
-        // Calculate which lines to show
         let start_line = scrollback_len.saturating_sub(self.scroll_offset);
 
         for y in 0..rows {
             let line_idx = start_line + y;
-            output.push_str(&format!("{:02} ", y));
+            let _ = write!(output, "{:02} ", y);
 
             if line_idx < scrollback_len {
-                let line = &scrollback[line_idx];
-                for cell in line.iter().take(cols) {
+                for cell in scrollback[line_idx].iter().take(cols) {
                     output.push(cell.c);
                 }
             } else {
-                // Show from visible screen
                 let screen_idx = line_idx - scrollback_len;
-                let screen = self.emulator.grid.get_rows();
                 if let Some(row) = screen.get(screen_idx) {
                     for cell in row.iter().take(cols) {
                         output.push(cell.c);

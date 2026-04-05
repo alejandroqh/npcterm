@@ -1,3 +1,4 @@
+use crate::status::query::TerminalState;
 use serde::Serialize;
 use std::collections::VecDeque;
 
@@ -8,9 +9,8 @@ pub enum TerminalEvent {
     CommandFinished { exit_code: i32 },
     WaitingForInput,
     Bell,
-    ProcessStateChanged { old: String, new: String },
+    ProcessStateChanged { old: TerminalState, new: TerminalState },
     ScreenChanged { changed_rows: Vec<usize> },
-    OutputReceived { byte_count: usize },
 }
 
 /// Event queue per terminal instance
@@ -34,14 +34,8 @@ impl EventQueue {
         self.events.push_back(event);
     }
 
-    /// Drain all events (consume)
     pub fn drain(&mut self) -> Vec<TerminalEvent> {
         self.events.drain(..).collect()
-    }
-
-    /// Peek at events without consuming
-    pub fn peek(&self) -> &VecDeque<TerminalEvent> {
-        &self.events
     }
 
     pub fn len(&self) -> usize {

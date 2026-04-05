@@ -2,10 +2,25 @@ use serde_json::{Value, json};
 
 use crate::input::keys::Key;
 use crate::input::mouse::MouseAction;
+use crate::manager::instance::TerminalInstance;
 use crate::manager::registry::TerminalRegistry;
-use crate::screen::formatter::cell_to_info;
 
 use super::types::{ToolCallResult, ToolDef};
+
+/// Extract terminal instance from registry, or return error
+fn get_instance<'a>(
+    registry: &'a mut TerminalRegistry,
+    args: &Value,
+) -> Result<&'a mut TerminalInstance, ToolCallResult> {
+    let id = args
+        .get("id")
+        .and_then(|v| v.as_str())
+        .ok_or_else(|| ToolCallResult::error("Missing 'id' parameter".into()))?;
+
+    registry
+        .get_mut(id)
+        .ok_or_else(|| ToolCallResult::error(format!("Terminal '{}' not found", id)))
+}
 
 /// Return all tool definitions
 pub fn tool_definitions() -> Vec<ToolDef> {
@@ -16,8 +31,8 @@ pub fn tool_definitions() -> Vec<ToolDef> {
             input_schema: json!({
                 "type": "object",
                 "properties": {
-                    "size": { "type": "string", "enum": ["80x24", "120x40"], "default": "80x24", "description": "Terminal size" },
-                    "shell": { "type": "string", "description": "Shell path (optional, uses system default)" }
+                    "size": { "type": "string", "enum": ["80x24", "120x40"], "default": "80x24" },
+                    "shell": { "type": "string", "description": "Shell path (optional)" }
                 }
             }),
         },
@@ -26,9 +41,7 @@ pub fn tool_definitions() -> Vec<ToolDef> {
             description: "Destroy a terminal instance".into(),
             input_schema: json!({
                 "type": "object",
-                "properties": {
-                    "id": { "type": "string", "description": "Terminal instance ID" }
-                },
+                "properties": { "id": { "type": "string" } },
                 "required": ["id"]
             }),
         },
@@ -39,7 +52,7 @@ pub fn tool_definitions() -> Vec<ToolDef> {
         },
         ToolDef {
             name: "terminal_send_key".into(),
-            description: "Send a keystroke to terminal. Keys: a-z, Enter, Tab, Escape, Backspace, Delete, Up, Down, Left, Right, Home, End, PageUp, PageDown, F1-F12, Ctrl+c, Alt+x, space".into(),
+            description: "Send a keystroke: a-z, Enter, Tab, Escape, Backspace, Delete, Up, Down, Left, Right, Home, End, PageUp, PageDown, F1-F12, Ctrl+c, Alt+x, space".into(),
             input_schema: json!({
                 "type": "object",
                 "properties": {
@@ -51,7 +64,7 @@ pub fn tool_definitions() -> Vec<ToolDef> {
         },
         ToolDef {
             name: "terminal_send_keys".into(),
-            description: "Send multiple keystrokes to terminal (batch)".into(),
+            description: "Send multiple keystrokes (batch, single flush)".into(),
             input_schema: json!({
                 "type": "object",
                 "properties": {
@@ -80,10 +93,7 @@ pub fn tool_definitions() -> Vec<ToolDef> {
             description: "Read full terminal screen with coordinate overlay".into(),
             input_schema: json!({
                 "type": "object",
-                "properties": {
-                    "id": { "type": "string" },
-                    "format": { "type": "string", "enum": ["text", "json"], "default": "text" }
-                },
+                "properties": { "id": { "type": "string" } },
                 "required": ["id"]
             }),
         },
@@ -107,34 +117,30 @@ pub fn tool_definitions() -> Vec<ToolDef> {
                 "type": "object",
                 "properties": {
                     "id": { "type": "string" },
-                    "col1": { "type": "integer" },
-                    "row1": { "type": "integer" },
-                    "col2": { "type": "integer" },
-                    "row2": { "type": "integer" }
+                    "col1": { "type": "integer" }, "row1": { "type": "integer" },
+                    "col2": { "type": "integer" }, "row2": { "type": "integer" }
                 },
                 "required": ["id", "col1", "row1", "col2", "row2"]
             }),
         },
         ToolDef {
             name: "terminal_status".into(),
-            description: "Get lightweight terminal status (token-optimized, no full screen)".into(),
+            description: "Get lightweight terminal status (token-optimized)".into(),
             input_schema: json!({
                 "type": "object",
                 "properties": {
                     "id": { "type": "string" },
-                    "last_n_lines": { "type": "integer", "default": 5, "description": "Number of last lines to include" }
+                    "last_n_lines": { "type": "integer", "default": 5 }
                 },
                 "required": ["id"]
             }),
         },
         ToolDef {
             name: "terminal_poll_events".into(),
-            description: "Get and clear pending terminal events (bell, command finished, screen changed, etc.)".into(),
+            description: "Get and clear pending terminal events".into(),
             input_schema: json!({
                 "type": "object",
-                "properties": {
-                    "id": { "type": "string" }
-                },
+                "properties": { "id": { "type": "string" } },
                 "required": ["id"]
             }),
         },
@@ -145,10 +151,8 @@ pub fn tool_definitions() -> Vec<ToolDef> {
                 "type": "object",
                 "properties": {
                     "id": { "type": "string" },
-                    "start_col": { "type": "integer" },
-                    "start_row": { "type": "integer" },
-                    "end_col": { "type": "integer" },
-                    "end_row": { "type": "integer" }
+                    "start_col": { "type": "integer" }, "start_row": { "type": "integer" },
+                    "end_col": { "type": "integer" }, "end_row": { "type": "integer" }
                 },
                 "required": ["id", "start_col", "start_row", "end_col", "end_row"]
             }),
@@ -161,7 +165,7 @@ pub fn tool_definitions() -> Vec<ToolDef> {
                 "properties": {
                     "id": { "type": "string" },
                     "action": { "type": "string", "enum": ["page_up", "page_down", "search"] },
-                    "text": { "type": "string", "description": "Search text (required for 'search' action)" }
+                    "text": { "type": "string" }
                 },
                 "required": ["id", "action"]
             }),
@@ -183,12 +187,8 @@ pub fn handle_tool_call(
                 _ => (80, 24),
             };
             let shell = args.get("shell").and_then(|v| v.as_str());
-
             match registry.create(cols, rows, shell) {
-                Ok(id) => ToolCallResult::text(
-                    serde_json::to_string(&json!({ "id": id, "cols": cols, "rows": rows }))
-                        .unwrap(),
-                ),
+                Ok(id) => ToolCallResult::text(json!({ "id": id, "cols": cols, "rows": rows }).to_string()),
                 Err(e) => ToolCallResult::error(e),
             }
         }
@@ -198,35 +198,26 @@ pub fn handle_tool_call(
                 Some(id) => id,
                 None => return ToolCallResult::error("Missing 'id' parameter".into()),
             };
-            let success = registry.destroy(id);
-            ToolCallResult::text(json!({ "success": success }).to_string())
+            ToolCallResult::text(json!({ "success": registry.destroy(id) }).to_string())
         }
 
         "terminal_list" => {
-            let terminals = registry.list();
-            ToolCallResult::text(json!({ "terminals": terminals }).to_string())
+            ToolCallResult::text(json!({ "terminals": registry.list() }).to_string())
         }
 
         "terminal_send_key" => {
-            let id = match args.get("id").and_then(|v| v.as_str()) {
-                Some(id) => id,
-                None => return ToolCallResult::error("Missing 'id' parameter".into()),
-            };
             let key_str = match args.get("key").and_then(|v| v.as_str()) {
                 Some(k) => k,
                 None => return ToolCallResult::error("Missing 'key' parameter".into()),
             };
-
             let key = match Key::from_str(key_str) {
                 Ok(k) => k,
                 Err(e) => return ToolCallResult::error(e),
             };
-
-            let instance = match registry.get_mut(id) {
-                Some(i) => i,
-                None => return ToolCallResult::error(format!("Terminal '{}' not found", id)),
+            let instance = match get_instance(registry, args) {
+                Ok(i) => i,
+                Err(e) => return e,
             };
-
             match instance.send_key(key) {
                 Ok(_) => ToolCallResult::text(json!({ "success": true }).to_string()),
                 Err(e) => ToolCallResult::error(format!("Failed to send key: {}", e)),
@@ -234,22 +225,16 @@ pub fn handle_tool_call(
         }
 
         "terminal_send_keys" => {
-            let id = match args.get("id").and_then(|v| v.as_str()) {
-                Some(id) => id,
-                None => return ToolCallResult::error("Missing 'id' parameter".into()),
-            };
             let keys_arr = match args.get("keys").and_then(|v| v.as_array()) {
-                Some(k) => k,
+                Some(k) => k.clone(),
                 None => return ToolCallResult::error("Missing 'keys' parameter".into()),
             };
-
-            let instance = match registry.get_mut(id) {
-                Some(i) => i,
-                None => return ToolCallResult::error(format!("Terminal '{}' not found", id)),
+            let instance = match get_instance(registry, args) {
+                Ok(i) => i,
+                Err(e) => return e,
             };
-
             let mut count = 0;
-            for key_val in keys_arr {
+            for key_val in &keys_arr {
                 let key_str = match key_val.as_str() {
                     Some(s) => s,
                     None => continue,
@@ -258,20 +243,16 @@ pub fn handle_tool_call(
                     Ok(k) => k,
                     Err(e) => return ToolCallResult::error(e),
                 };
-                if let Err(e) = instance.send_key(key) {
+                if let Err(e) = instance.send_key_no_flush(key) {
                     return ToolCallResult::error(format!("Failed at key {}: {}", count, e));
                 }
                 count += 1;
             }
-
+            let _ = instance.flush_input();
             ToolCallResult::text(json!({ "success": true, "count": count }).to_string())
         }
 
         "terminal_mouse" => {
-            let id = match args.get("id").and_then(|v| v.as_str()) {
-                Some(id) => id,
-                None => return ToolCallResult::error("Missing 'id' parameter".into()),
-            };
             let action_str = match args.get("action").and_then(|v| v.as_str()) {
                 Some(a) => a,
                 None => return ToolCallResult::error("Missing 'action' parameter".into()),
@@ -289,154 +270,85 @@ pub fn handle_tool_call(
                 _ => return ToolCallResult::error(format!("Unknown action: {}", action_str)),
             };
 
-            let instance = match registry.get_mut(id) {
-                Some(i) => i,
-                None => return ToolCallResult::error(format!("Terminal '{}' not found", id)),
+            let instance = match get_instance(registry, args) {
+                Ok(i) => i,
+                Err(e) => return e,
             };
-
             let result = instance.send_mouse(action);
             ToolCallResult::text(serde_json::to_string(&result).unwrap())
         }
 
         "terminal_read_screen" => {
-            let id = match args.get("id").and_then(|v| v.as_str()) {
-                Some(id) => id,
-                None => return ToolCallResult::error("Missing 'id' parameter".into()),
+            let instance = match get_instance(registry, args) {
+                Ok(i) => i,
+                Err(e) => return e,
             };
-            let format = args
-                .get("format")
-                .and_then(|v| v.as_str())
-                .unwrap_or("text");
-
-            let instance = match registry.get_mut(id) {
-                Some(i) => i,
-                None => return ToolCallResult::error(format!("Terminal '{}' not found", id)),
-            };
-
-            match format {
-                "json" => {
-                    // Full JSON cell data
-                    let grid = &instance.read_screen();
-                    // For JSON format, return cell-level data
-                    // Re-read from grid directly
-                    ToolCallResult::text(grid.clone())
-                }
-                _ => {
-                    let text = instance.read_screen();
-                    ToolCallResult::text(text)
-                }
-            }
+            ToolCallResult::text(instance.read_screen())
         }
 
         "terminal_read_rows" => {
-            let id = match args.get("id").and_then(|v| v.as_str()) {
-                Some(id) => id,
-                None => return ToolCallResult::error("Missing 'id' parameter".into()),
+            let start = args.get("start_row").and_then(|v| v.as_u64()).unwrap_or(0) as usize;
+            let end = args.get("end_row").and_then(|v| v.as_u64()).unwrap_or(0) as usize;
+            let instance = match get_instance(registry, args) {
+                Ok(i) => i,
+                Err(e) => return e,
             };
-            let start = args
-                .get("start_row")
-                .and_then(|v| v.as_u64())
-                .unwrap_or(0) as usize;
-            let end = args
-                .get("end_row")
-                .and_then(|v| v.as_u64())
-                .unwrap_or(0) as usize;
-
-            let instance = match registry.get(id) {
-                Some(i) => i,
-                None => return ToolCallResult::error(format!("Terminal '{}' not found", id)),
-            };
-
             ToolCallResult::text(instance.read_rows(start, end))
         }
 
         "terminal_read_region" => {
-            let id = match args.get("id").and_then(|v| v.as_str()) {
-                Some(id) => id,
-                None => return ToolCallResult::error("Missing 'id' parameter".into()),
-            };
             let col1 = args.get("col1").and_then(|v| v.as_u64()).unwrap_or(0) as usize;
             let row1 = args.get("row1").and_then(|v| v.as_u64()).unwrap_or(0) as usize;
             let col2 = args.get("col2").and_then(|v| v.as_u64()).unwrap_or(0) as usize;
             let row2 = args.get("row2").and_then(|v| v.as_u64()).unwrap_or(0) as usize;
-
-            let instance = match registry.get(id) {
-                Some(i) => i,
-                None => return ToolCallResult::error(format!("Terminal '{}' not found", id)),
+            let instance = match get_instance(registry, args) {
+                Ok(i) => i,
+                Err(e) => return e,
             };
-
             ToolCallResult::text(instance.read_region(col1, row1, col2, row2))
         }
 
         "terminal_status" => {
-            let id = match args.get("id").and_then(|v| v.as_str()) {
-                Some(id) => id,
-                None => return ToolCallResult::error("Missing 'id' parameter".into()),
+            let last_n = args.get("last_n_lines").and_then(|v| v.as_u64()).unwrap_or(5) as usize;
+            let instance = match get_instance(registry, args) {
+                Ok(i) => i,
+                Err(e) => return e,
             };
-            let last_n = args
-                .get("last_n_lines")
-                .and_then(|v| v.as_u64())
-                .unwrap_or(5) as usize;
-
-            let instance = match registry.get(id) {
-                Some(i) => i,
-                None => return ToolCallResult::error(format!("Terminal '{}' not found", id)),
-            };
-
-            let status = instance.get_status(last_n);
-            ToolCallResult::text(serde_json::to_string(&status).unwrap())
+            ToolCallResult::text(serde_json::to_string(&instance.get_status(last_n)).unwrap())
         }
 
         "terminal_poll_events" => {
-            let id = match args.get("id").and_then(|v| v.as_str()) {
-                Some(id) => id,
-                None => return ToolCallResult::error("Missing 'id' parameter".into()),
+            let instance = match get_instance(registry, args) {
+                Ok(i) => i,
+                Err(e) => return e,
             };
-
-            let instance = match registry.get_mut(id) {
-                Some(i) => i,
-                None => return ToolCallResult::error(format!("Terminal '{}' not found", id)),
-            };
-
             let events = instance.poll_events();
             ToolCallResult::text(json!({ "events": events }).to_string())
         }
 
         "terminal_select" => {
-            let id = match args.get("id").and_then(|v| v.as_str()) {
-                Some(id) => id,
-                None => return ToolCallResult::error("Missing 'id' parameter".into()),
-            };
             let sc = args.get("start_col").and_then(|v| v.as_u64()).unwrap_or(0) as usize;
             let sr = args.get("start_row").and_then(|v| v.as_u64()).unwrap_or(0) as usize;
             let ec = args.get("end_col").and_then(|v| v.as_u64()).unwrap_or(0) as usize;
             let er = args.get("end_row").and_then(|v| v.as_u64()).unwrap_or(0) as usize;
-
-            let instance = match registry.get_mut(id) {
-                Some(i) => i,
-                None => return ToolCallResult::error(format!("Terminal '{}' not found", id)),
+            let instance = match get_instance(registry, args) {
+                Ok(i) => i,
+                Err(e) => return e,
             };
-
             let text = instance.select_range(sc, sr, ec, er);
             ToolCallResult::text(json!({ "selected_text": text }).to_string())
         }
 
         "terminal_scroll" => {
-            let id = match args.get("id").and_then(|v| v.as_str()) {
-                Some(id) => id,
-                None => return ToolCallResult::error("Missing 'id' parameter".into()),
-            };
             let action = match args.get("action").and_then(|v| v.as_str()) {
-                Some(a) => a,
+                Some(a) => a.to_string(),
                 None => return ToolCallResult::error("Missing 'action' parameter".into()),
             };
-
-            let instance = match registry.get_mut(id) {
-                Some(i) => i,
-                None => return ToolCallResult::error(format!("Terminal '{}' not found", id)),
+            let instance = match get_instance(registry, args) {
+                Ok(i) => i,
+                Err(e) => return e,
             };
-
-            match action {
+            match action.as_str() {
                 "page_up" => {
                     let offset = instance.scroll_page_up();
                     ToolCallResult::text(json!({ "scroll_offset": offset }).to_string())
@@ -451,9 +363,7 @@ pub fn handle_tool_call(
                         return ToolCallResult::error("Missing 'text' for search".into());
                     }
                     let (offset, found) = instance.scroll_to_text(text);
-                    ToolCallResult::text(
-                        json!({ "scroll_offset": offset, "found": found }).to_string(),
-                    )
+                    ToolCallResult::text(json!({ "scroll_offset": offset, "found": found }).to_string())
                 }
                 _ => ToolCallResult::error(format!("Unknown scroll action: {}", action)),
             }

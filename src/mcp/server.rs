@@ -7,17 +7,17 @@ use serde_json::{Value, json};
 use crate::manager::registry::TerminalRegistry;
 
 use super::tools;
-use super::types::{JsonRpcRequest, JsonRpcResponse, ToolCallResult};
+use super::types::{JsonRpcRequest, JsonRpcResponse};
 
 /// Run the MCP server on stdio (blocking)
 pub fn run_stdio_server() {
     let registry = Arc::new(Mutex::new(TerminalRegistry::default()));
 
-    // Spawn background tick thread
+    // Background tick thread — processes PTY output every 10ms
     let tick_registry = Arc::clone(&registry);
     std::thread::spawn(move || loop {
         std::thread::sleep(Duration::from_millis(10));
-        if let Ok(mut reg) = tick_registry.lock() {
+        if let Ok(mut reg) = tick_registry.try_lock() {
             reg.tick_all();
         }
     });
@@ -63,46 +63,24 @@ fn handle_request(
         "initialize" => {
             let result = json!({
                 "protocolVersion": "2024-11-05",
-                "capabilities": {
-                    "tools": {}
-                },
-                "serverInfo": {
-                    "name": "aiterm39",
-                    "version": "1.0.0"
-                }
+                "capabilities": { "tools": {} },
+                "serverInfo": { "name": "aiterm39", "version": "1.0.0" }
             });
             Some(JsonRpcResponse::success(request.id.clone(), result))
         }
 
-        "notifications/initialized" => {
-            // Notification — no response needed
-            None
-        }
+        "notifications/initialized" => None,
 
         "tools/list" => {
             let tool_defs = tools::tool_definitions();
-            let result = json!({ "tools": tool_defs });
-            Some(JsonRpcResponse::success(request.id.clone(), result))
+            Some(JsonRpcResponse::success(request.id.clone(), json!({ "tools": tool_defs })))
         }
 
         "tools/call" => {
-            let tool_name = request
-                .params
-                .get("name")
-                .and_then(|v| v.as_str())
-                .unwrap_or("");
-
-            let args = request
-                .params
-                .get("arguments")
-                .cloned()
-                .unwrap_or(Value::Object(Default::default()));
+            let tool_name = request.params.get("name").and_then(|v| v.as_str()).unwrap_or("");
+            let args = request.params.get("arguments").cloned().unwrap_or(Value::Object(Default::default()));
 
             let mut reg = registry.lock().unwrap();
-
-            // Process output before handling tool call
-            reg.tick_all();
-
             let result = tools::handle_tool_call(&mut reg, tool_name, &args);
 
             Some(JsonRpcResponse::success(
@@ -114,7 +92,6 @@ fn handle_request(
         "ping" => Some(JsonRpcResponse::success(request.id.clone(), json!({}))),
 
         _ => {
-            // Unknown method — if it has an id, respond with error; if notification, ignore
             if request.id.is_some() {
                 Some(JsonRpcResponse::error(
                     request.id.clone(),

@@ -76,6 +76,15 @@ impl TerminalCell {
         self.attrs = CellAttributes::default();
         self.wide = false;
     }
+
+    /// Erase cell with a specific background color (used by terminal erase operations)
+    pub fn erase(&mut self, bg: Color) {
+        self.c = ' ';
+        self.fg = Color::Default;
+        self.bg = bg;
+        self.attrs = CellAttributes::default();
+        self.wide = false;
+    }
 }
 
 /// Cursor position and visibility state
