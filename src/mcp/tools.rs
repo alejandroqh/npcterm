@@ -7,16 +7,17 @@ use crate::manager::registry::TerminalRegistry;
 
 use super::types::{ToolCallResult, ToolDef};
 
-/// Extract terminal instance from registry, or return error
+fn get_id<'a>(args: &'a Value) -> Result<&'a str, ToolCallResult> {
+    args.get("id")
+        .and_then(|v| v.as_str())
+        .ok_or_else(|| ToolCallResult::error("Missing 'id' parameter".into()))
+}
+
 fn get_instance<'a>(
     registry: &'a mut TerminalRegistry,
     args: &Value,
 ) -> Result<&'a mut TerminalInstance, ToolCallResult> {
-    let id = args
-        .get("id")
-        .and_then(|v| v.as_str())
-        .ok_or_else(|| ToolCallResult::error("Missing 'id' parameter".into()))?;
-
+    let id = get_id(args)?;
     registry
         .get_mut(id)
         .ok_or_else(|| ToolCallResult::error(format!("Terminal '{}' not found", id)))
@@ -64,14 +65,23 @@ pub fn tool_definitions() -> Vec<ToolDef> {
         },
         ToolDef {
             name: "terminal_send_keys".into(),
-            description: "Send multiple keystrokes (batch, single flush)".into(),
+            description: "Send input as a sequence of text strings and special keys. Each element is either {\"text\":\"string\"} for raw text or {\"key\":\"Enter\"} for special keys (Enter, Tab, Escape, Ctrl+c, etc). Example: [{\"text\":\"echo hello\"},{\"key\":\"Enter\"}]".into(),
             input_schema: json!({
                 "type": "object",
                 "properties": {
                     "id": { "type": "string" },
-                    "keys": { "type": "array", "items": { "type": "string" } }
+                    "input": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "text": { "type": "string", "description": "Raw text to type" },
+                                "key": { "type": "string", "description": "Special key name (Enter, Tab, Ctrl+c, etc)" }
+                            }
+                        }
+                    }
                 },
-                "required": ["id", "keys"]
+                "required": ["id", "input"]
             }),
         },
         ToolDef {
@@ -194,9 +204,9 @@ pub fn handle_tool_call(
         }
 
         "terminal_destroy" => {
-            let id = match args.get("id").and_then(|v| v.as_str()) {
-                Some(id) => id,
-                None => return ToolCallResult::error("Missing 'id' parameter".into()),
+            let id = match get_id(args) {
+                Ok(id) => id,
+                Err(e) => return e,
             };
             ToolCallResult::text(json!({ "success": registry.destroy(id) }).to_string())
         }
@@ -225,31 +235,33 @@ pub fn handle_tool_call(
         }
 
         "terminal_send_keys" => {
-            let keys_arr = match args.get("keys").and_then(|v| v.as_array()) {
-                Some(k) => k.clone(),
-                None => return ToolCallResult::error("Missing 'keys' parameter".into()),
-            };
             let instance = match get_instance(registry, args) {
                 Ok(i) => i,
                 Err(e) => return e,
             };
-            let mut count = 0;
-            for key_val in &keys_arr {
-                let key_str = match key_val.as_str() {
-                    Some(s) => s,
-                    None => continue,
-                };
-                let key = match Key::from_str(key_str) {
-                    Ok(k) => k,
-                    Err(e) => return ToolCallResult::error(e),
-                };
-                if let Err(e) = instance.send_key_no_flush(key) {
-                    return ToolCallResult::error(format!("Failed at key {}: {}", count, e));
+            let input_arr = match args.get("input").and_then(|v| v.as_array()) {
+                Some(k) => k,
+                None => return ToolCallResult::error("Missing 'input' parameter".into()),
+            };
+            for item in input_arr {
+                if let Some(text) = item.get("text").and_then(|v| v.as_str()) {
+                    if let Err(e) = instance.write_raw(text.as_bytes()) {
+                        return ToolCallResult::error(format!("Failed to send text: {}", e));
+                    }
+                } else if let Some(key_str) = item.get("key").and_then(|v| v.as_str()) {
+                    let key = match Key::from_str(key_str) {
+                        Ok(k) => k,
+                        Err(e) => return ToolCallResult::error(e),
+                    };
+                    if let Err(e) = instance.send_key_no_flush(key) {
+                        return ToolCallResult::error(format!("Failed to send key: {}", e));
+                    }
+                } else {
+                    return ToolCallResult::error("Each input element must have 'text' or 'key'".into());
                 }
-                count += 1;
             }
             let _ = instance.flush_input();
-            ToolCallResult::text(json!({ "success": true, "count": count }).to_string())
+            ToolCallResult::text(json!({ "success": true }).to_string())
         }
 
         "terminal_mouse" => {
@@ -341,14 +353,15 @@ pub fn handle_tool_call(
 
         "terminal_scroll" => {
             let action = match args.get("action").and_then(|v| v.as_str()) {
-                Some(a) => a.to_string(),
+                Some(a) => a,
                 None => return ToolCallResult::error("Missing 'action' parameter".into()),
             };
+            let search_text = args.get("text").and_then(|v| v.as_str()).unwrap_or("");
             let instance = match get_instance(registry, args) {
                 Ok(i) => i,
                 Err(e) => return e,
             };
-            match action.as_str() {
+            match action {
                 "page_up" => {
                     let offset = instance.scroll_page_up();
                     ToolCallResult::text(json!({ "scroll_offset": offset }).to_string())
@@ -358,11 +371,10 @@ pub fn handle_tool_call(
                     ToolCallResult::text(json!({ "scroll_offset": offset }).to_string())
                 }
                 "search" => {
-                    let text = args.get("text").and_then(|v| v.as_str()).unwrap_or("");
-                    if text.is_empty() {
+                    if search_text.is_empty() {
                         return ToolCallResult::error("Missing 'text' for search".into());
                     }
-                    let (offset, found) = instance.scroll_to_text(text);
+                    let (offset, found) = instance.scroll_to_text(search_text);
                     ToolCallResult::text(json!({ "scroll_offset": offset, "found": found }).to_string())
                 }
                 _ => ToolCallResult::error(format!("Unknown scroll action: {}", action)),

@@ -22,13 +22,32 @@ pub struct TerminalInfo {
 pub struct TerminalRegistry {
     instances: HashMap<String, TerminalInstance>,
     max_instances: usize,
+    next_id: usize,
 }
 
 impl TerminalRegistry {
+    const ID_CHARS: &[u8] = b"abcdefghijklmnopqrstuvwxyz0123456789";
+
     pub fn new(max_instances: usize) -> Self {
         Self {
             instances: HashMap::new(),
             max_instances,
+            next_id: 0,
+        }
+    }
+
+    fn next_short_id(&mut self) -> String {
+        let base = Self::ID_CHARS.len();
+        loop {
+            let a = self.next_id / base;
+            let b = self.next_id % base;
+            self.next_id += 1;
+            let mut id = String::with_capacity(2);
+            id.push(Self::ID_CHARS[a % base] as char);
+            id.push(Self::ID_CHARS[b] as char);
+            if !self.instances.contains_key(&id) {
+                return id;
+            }
         }
     }
 
@@ -45,7 +64,7 @@ impl TerminalRegistry {
             ));
         }
 
-        let id = uuid::Uuid::new_v4().to_string();
+        let id = self.next_short_id();
         let instance = TerminalInstance::new(id.clone(), cols, rows, shell)
             .map_err(|e| format!("Failed to create terminal: {}", e))?;
 

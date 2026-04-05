@@ -117,20 +117,23 @@ impl TerminalInstance {
         self.process_state = new_state;
     }
 
-    /// Send a keystroke to the terminal
+    /// Send a keystroke and flush immediately
     pub fn send_key(&mut self, key: Key) -> std::io::Result<()> {
-        let seq = key.to_escape_sequence(self.emulator.grid.application_cursor_keys);
-        self.emulator.write_input(&seq)?;
-        self.emulator.flush_input()
+        self.send_key_no_flush(key)?;
+        self.flush_input()
     }
 
-    /// Send a raw key without flushing (for batch operations)
+    /// Send a special key without flushing (for batch operations)
     pub fn send_key_no_flush(&mut self, key: Key) -> std::io::Result<()> {
         let seq = key.to_escape_sequence(self.emulator.grid.application_cursor_keys);
-        self.emulator.write_input(&seq)
+        self.write_raw(&seq)
     }
 
-    /// Flush buffered input
+    /// Write raw bytes to the terminal without flushing
+    pub fn write_raw(&mut self, data: &[u8]) -> std::io::Result<()> {
+        self.emulator.write_input(data)
+    }
+
     pub fn flush_input(&mut self) -> std::io::Result<()> {
         self.emulator.flush_input()
     }
