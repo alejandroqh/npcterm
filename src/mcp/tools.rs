@@ -28,7 +28,7 @@ pub fn tool_definitions() -> Vec<ToolDef> {
     vec![
         ToolDef {
             name: "terminal_create".into(),
-            description: "Create a new terminal instance".into(),
+            description: "Create a new terminal instance. Returns {id, cols, rows}. The id is required for all subsequent terminal operations. Pass size '120x40' only if you need a larger terminal.".into(),
             input_schema: json!({
                 "type": "object",
                 "properties": {
@@ -39,7 +39,7 @@ pub fn tool_definitions() -> Vec<ToolDef> {
         },
         ToolDef {
             name: "terminal_destroy".into(),
-            description: "Destroy a terminal instance".into(),
+            description: "Destroy a terminal instance and kill its PTY process. Returns {success: bool}.".into(),
             input_schema: json!({
                 "type": "object",
                 "properties": { "id": { "type": "string" } },
@@ -48,12 +48,12 @@ pub fn tool_definitions() -> Vec<ToolDef> {
         },
         ToolDef {
             name: "terminal_list".into(),
-            description: "List all terminal instances".into(),
+            description: "List all terminal instances with id, size, state, and running command.".into(),
             input_schema: json!({ "type": "object", "properties": {} }),
         },
         ToolDef {
             name: "terminal_send_key".into(),
-            description: "Send a keystroke: a-z, Enter, Tab, Escape, Backspace, Delete, Up, Down, Left, Right, Home, End, PageUp, PageDown, F1-F12, Ctrl+c, Alt+x, space".into(),
+            description: "Send a single keystroke. Supports: a-z, Enter, Tab, Escape, Backspace, Delete, arrows, Home, End, PageUp, PageDown, F1-F12, Ctrl+key, Alt+key, space. For multiple keystrokes or text input, use terminal_send_keys instead.".into(),
             input_schema: json!({
                 "type": "object",
                 "properties": {
@@ -65,7 +65,7 @@ pub fn tool_definitions() -> Vec<ToolDef> {
         },
         ToolDef {
             name: "terminal_send_keys".into(),
-            description: "Send input as a sequence of text strings and special keys. Each element is either {\"text\":\"string\"} for raw text or {\"key\":\"Enter\"} for special keys (Enter, Tab, Escape, Ctrl+c, etc). Example: [{\"text\":\"echo hello\"},{\"key\":\"Enter\"}]".into(),
+            description: "Send a batch of text and special keys in one call (preferred over terminal_send_key for multi-step input). Each element is either {\"text\":\"string\"} for raw text or {\"key\":\"Enter\"} for special keys (Enter, Tab, Escape, Ctrl+c, etc). Example: [{\"text\":\"echo hello\"},{\"key\":\"Enter\"}]".into(),
             input_schema: json!({
                 "type": "object",
                 "properties": {
@@ -86,7 +86,7 @@ pub fn tool_definitions() -> Vec<ToolDef> {
         },
         ToolDef {
             name: "terminal_mouse".into(),
-            description: "Perform a mouse action on the terminal".into(),
+            description: "Perform a mouse action. col and row required for left_click, right_click, double_click, move, set_position. get_position returns current cursor coords.".into(),
             input_schema: json!({
                 "type": "object",
                 "properties": {
@@ -100,7 +100,7 @@ pub fn tool_definitions() -> Vec<ToolDef> {
         },
         ToolDef {
             name: "terminal_read_screen".into(),
-            description: "Read full terminal screen with coordinate overlay".into(),
+            description: "Read terminal screen with coordinate overlay (column/row headers for precise navigation). Use this for programmatic cell targeting.".into(),
             input_schema: json!({
                 "type": "object",
                 "properties": { "id": { "type": "string" } },
@@ -109,7 +109,7 @@ pub fn tool_definitions() -> Vec<ToolDef> {
         },
         ToolDef {
             name: "terminal_show_screen".into(),
-            description: "Show terminal screen as clean text (no coordinates, optimized for human display)".into(),
+            description: "Return terminal screen as plain text without coordinates. Lighter output, best for reading content or passing to other tools.".into(),
             input_schema: json!({
                 "type": "object",
                 "properties": { "id": { "type": "string" } },
@@ -118,7 +118,7 @@ pub fn tool_definitions() -> Vec<ToolDef> {
         },
         ToolDef {
             name: "terminal_read_rows".into(),
-            description: "Read specific rows from terminal screen".into(),
+            description: "Read specific rows from terminal screen with coordinate overlay (column headers + row numbers).".into(),
             input_schema: json!({
                 "type": "object",
                 "properties": {
@@ -131,7 +131,7 @@ pub fn tool_definitions() -> Vec<ToolDef> {
         },
         ToolDef {
             name: "terminal_read_region".into(),
-            description: "Read a rectangular region from terminal screen".into(),
+            description: "Read a rectangular region from terminal screen with row numbers.".into(),
             input_schema: json!({
                 "type": "object",
                 "properties": {
@@ -144,7 +144,7 @@ pub fn tool_definitions() -> Vec<ToolDef> {
         },
         ToolDef {
             name: "terminal_status".into(),
-            description: "Get lightweight terminal status (token-optimized)".into(),
+            description: "Get terminal status: process state, running command, cursor position, dirty rows, last N screen lines, pending event count, and scrollback depth. Token-efficient alternative to reading the full screen.".into(),
             input_schema: json!({
                 "type": "object",
                 "properties": {
@@ -156,7 +156,7 @@ pub fn tool_definitions() -> Vec<ToolDef> {
         },
         ToolDef {
             name: "terminal_poll_events".into(),
-            description: "Get and clear pending terminal events".into(),
+            description: "Drain pending terminal events (destructive: events are removed after reading). Event types: CommandFinished, WaitingForInput, Bell, ProcessStateChanged, ScreenChanged.".into(),
             input_schema: json!({
                 "type": "object",
                 "properties": { "id": { "type": "string" } },
@@ -165,7 +165,7 @@ pub fn tool_definitions() -> Vec<ToolDef> {
         },
         ToolDef {
             name: "terminal_select".into(),
-            description: "Select text by coordinate range and return it".into(),
+            description: "Select text by coordinate range (like click-drag) and return it. Unlike read_region, this is a logical text selection that can span across lines.".into(),
             input_schema: json!({
                 "type": "object",
                 "properties": {
@@ -178,7 +178,7 @@ pub fn tool_definitions() -> Vec<ToolDef> {
         },
         ToolDef {
             name: "terminal_scroll".into(),
-            description: "Page-based scrollback: page_up, page_down, or search for text".into(),
+            description: "Navigate scrollback history: page_up, page_down, or search (requires 'text' param). Returns {scroll_offset} (0 = bottom). Use terminal_read_screen after scrolling to see the result.".into(),
             input_schema: json!({
                 "type": "object",
                 "properties": {
