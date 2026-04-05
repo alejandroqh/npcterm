@@ -2,7 +2,7 @@
   <img src="docs/logo.png" alt="NPCterm39"  width="400">
 </p>
 
-# NPCterm39
+# NPCterm3
 
 The ultimate harness agent tool. A headless, in-memory terminal emulator for AI agents, exposed via [MCP](https://modelcontextprotocol.io/) (Model Context Protocol).
 
