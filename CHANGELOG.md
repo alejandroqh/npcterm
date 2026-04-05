@@ -4,7 +4,7 @@ All notable changes to NPCterm39 will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
-## [1.0.0] - 2026-04-05
+## [v1.0.0] - 2026-04-05
 
 ### Added
 
@@ -28,6 +28,4 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Notes
 
-- Ported from term39 (Tauri-based terminal UI), stripped of all UI code
-- macOS only for process state detection
-- No test suite yet
+- Ported from term39 
