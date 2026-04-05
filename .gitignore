@@ -1,0 +1,16 @@
+# Build
+/target
+
+# macOS
+.DS_Store
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Rust
+**/*.rs.bk
+Cargo.lock

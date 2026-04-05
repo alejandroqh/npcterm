@@ -1,0 +1,22 @@
+[package]
+name = "aiterm39"
+version = "1.0.0"
+edition = "2024"
+license = "MIT"
+authors = ["Alejandro Quintanar"]
+description = "A headless, in-memory terminal emulator for AI agents, exposed via MCP"
+
+[profile.release]
+strip = true
+lto = true
+codegen-units = 1
+
+[dependencies]
+portable-pty = "0.9"
+vte = "0.15"
+unicode-width = "0.2"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+tokio = { version = "1", features = ["full"] }
+uuid = { version = "1", features = ["v4"] }
+chrono = { version = "0.4", features = ["serde"] }
