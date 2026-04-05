@@ -1,9 +1,0 @@
-{
-  "mcpServers": {
-    "npcterm39": {
-      "type": "stdio",
-      "command": "/Users/aquintanar/Development/aiterm39/target/release/npcterm39",
-      "args": []
-    }
-  }
-}

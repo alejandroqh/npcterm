@@ -4,7 +4,11 @@ version = "1.0.0"
 edition = "2024"
 license = "Apache-2.0"
 authors = ["Alejandro Quintanar"]
-description = "A headless, in-memory terminal emulator for AI agents, exposed via MCP"
+repository = "https://github.com/alejandroqh/npcterm"
+readme = "README.md"
+keywords = ["terminal", "mcp", "ai", "headless", "harness"]
+categories = ["command-line-utilities", "emulators"]
+description = "Headless terminal emulator for AI agents with full PTY access over MCP"
 
 [profile.release]
 strip = true
