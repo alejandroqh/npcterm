@@ -1,14 +1,14 @@
 <p align="center">
-  <img src="docs/logo.png" alt="NPCterm39"  width="400">
+  <img src="docs/logo.png" alt="NPCterm"  width="400">
 </p>
 
 # NPCterm
 
 The ultimate harness agent tool. A headless, in-memory terminal emulator for AI agents, exposed via [MCP](https://modelcontextprotocol.io/) (Model Context Protocol).
 
-NPCterm39 gives AI agents **full terminal access**. The ability to spawn shells, run arbitrary commands, read screen output, send keystrokes, and interact with TUI applications. This is one of the most powerful capabilities you can grant an AI agent: it is effectively equivalent to giving it access to a computer.
+NPCterm gives AI agents **full terminal access**. The ability to spawn shells, run arbitrary commands, read screen output, send keystrokes, and interact with TUI applications. This is one of the most powerful capabilities you can grant an AI agent: it is effectively equivalent to giving it access to a computer.
 
-> **Use with precautions.** A terminal is an unrestricted execution environment. Any command the agent can type, the system will run. This includes installing software, modifying files, accessing the network, and anything else a shell user can do. Deploy NPCterm39 in sandboxed or controlled environments, and always apply the principle of least privilege. Do not expose it to untrusted agents without appropriate safeguards.
+> **Use with precautions.** A terminal is an unrestricted execution environment. Any command the agent can type, the system will run. This includes installing software, modifying files, accessing the network, and anything else a shell user can do. Deploy NPCterm in sandboxed or controlled environments, and always apply the principle of least privilege. Do not expose it to untrusted agents without appropriate safeguards.
 
 ## Features
 
@@ -24,20 +24,20 @@ NPCterm39 gives AI agents **full terminal access**. The ability to spawn shells,
 ## Install
 
 ```bash
-cargo build npcterm39
+cargo build npcterm
 ```
 
 ## Usage
 
-NPCterm39 is an MCP server. It communicates over stdin/stdout using JSON-RPC. To use it, configure it as an MCP server in your AI agent's MCP configuration.
+NPCterm is an MCP server. It communicates over stdin/stdout using JSON-RPC. To use it, configure it as an MCP server in your AI agent's MCP configuration.
 
 ### MCP Configuration Example
 
 ```json
 {
   "mcpServers": {
-    "npcterm39": {
-      "command": "npcterm39"
+    "npcterm": {
+      "command": "npcterm"
     }
   }
 }
@@ -113,13 +113,13 @@ Each terminal spawns a background PTY reader thread. A global tick thread (10ms 
 
 ## Security Considerations
 
-NPCterm39 provides **unrestricted shell access** to whatever agent connects to it. Before deploying:
+NPCterm provides **unrestricted shell access** to whatever agent connects to it. Before deploying:
 
 - **Sandbox the environment.** Run inside containers, VMs, or other isolation boundaries.
 - **Limit the agent's permissions.** Use restricted user accounts, filesystem permissions, and network policies.
 - **Monitor activity.** Log terminal events and review agent behavior.
-- **Do not run as root.** The PTY inherits the permissions of the NPCterm39 process.
-- **Treat this as you would SSH access.** If you wouldn't give the agent an SSH session to the machine, don't give it NPCterm39 either.
+- **Do not run as root.** The PTY inherits the permissions of the NPCterm process.
+- **Treat this as you would SSH access.** If you wouldn't give the agent an SSH session to the machine, don't give it NPCterm either.
 
 ## License
 
