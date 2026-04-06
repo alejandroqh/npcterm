@@ -25,6 +25,8 @@ pub struct TerminalInstance {
     /// Cached foreground process name (throttled to avoid spawning ps every tick)
     cached_process_name: Option<String>,
     last_process_name_check: Option<Instant>,
+    /// Scrollback length at time of last agent read (for incremental reads)
+    last_read_scrollback_len: usize,
 }
 
 impl TerminalInstance {
@@ -48,6 +50,7 @@ impl TerminalInstance {
             created_at: chrono::Utc::now(),
             cached_process_name: None,
             last_process_name_check: None,
+            last_read_scrollback_len: 0,
         })
     }
 
@@ -192,8 +195,14 @@ impl TerminalInstance {
         }
     }
 
-    pub fn read_screen(&mut self) -> String {
+    fn reset_read_baseline(&mut self) {
         self.emulator.grid.take_dirty_rows();
+        self.emulator.grid.clear_read_dirty();
+        self.last_read_scrollback_len = self.emulator.grid.scrollback_len();
+    }
+
+    pub fn read_screen(&mut self) -> String {
+        self.reset_read_baseline();
         if self.scroll_offset > 0 {
             self.render_scrollback(true)
         } else {
@@ -202,12 +211,70 @@ impl TerminalInstance {
     }
 
     pub fn show_screen(&mut self) -> String {
-        self.emulator.grid.take_dirty_rows();
+        self.reset_read_baseline();
         if self.scroll_offset > 0 {
             self.render_scrollback(false)
         } else {
             reader::show_screen_text(&self.emulator.grid)
         }
+    }
+
+    /// Read only new output since the last read, capped at max_lines
+    pub fn read_changes(&mut self, max_lines: usize) -> String {
+        use std::fmt::Write;
+
+        let scrollback_len = self.emulator.grid.scrollback_len();
+
+        // Handle scrollback eviction: if our cursor is past current length, lines were evicted
+        let effective_start = if self.last_read_scrollback_len > scrollback_len {
+            0
+        } else {
+            self.last_read_scrollback_len
+        };
+
+        let new_scrollback_count = scrollback_len - effective_start;
+
+        // Take dirty indices first (mutable borrow) before immutable scrollback borrow
+        let dirty_indices = self.emulator.grid.take_read_dirty_rows();
+
+        // Update baseline
+        self.last_read_scrollback_len = scrollback_len;
+
+        if new_scrollback_count == 0 && dirty_indices.is_empty() {
+            return String::from("(no changes)\n");
+        }
+
+        let mut output = String::new();
+
+        // Compute capped ranges before rendering (avoid rendering lines we'll discard)
+        let scrollback_to_skip = new_scrollback_count.saturating_sub(max_lines);
+        let scrollback_budget = new_scrollback_count - scrollback_to_skip;
+        let screen_budget = max_lines.saturating_sub(scrollback_budget);
+
+        if scrollback_budget > 0 {
+            output.push_str("--- scrollback ---\n");
+            if scrollback_to_skip > 0 {
+                let _ = write!(output, "({scrollback_to_skip} earlier lines omitted)\n");
+            }
+            let render_start = effective_start + scrollback_to_skip;
+            let scrollback = self.emulator.grid.get_scrollback();
+            reader::append_scrollback_lines(&mut output, scrollback, render_start, scrollback_len);
+        }
+
+        if screen_budget > 0 && !dirty_indices.is_empty() {
+            let screen_indices = if dirty_indices.len() > screen_budget {
+                &dirty_indices[dirty_indices.len() - screen_budget..]
+            } else {
+                &dirty_indices[..]
+            };
+            output.push_str("--- screen ---\n");
+            output.push_str(&reader::read_changed_rows_text(
+                &self.emulator.grid,
+                screen_indices,
+            ));
+        }
+
+        output
     }
 
     pub fn read_rows(&self, start: usize, end: usize) -> String {
@@ -239,6 +306,8 @@ impl TerminalInstance {
             pending_events: self.event_queue.len(),
             size: (self.cols(), self.rows()),
             scrollback_lines: self.emulator.grid.scrollback_len(),
+            has_new_content: self.emulator.grid.has_read_dirty()
+                || self.emulator.grid.scrollback_len() > self.last_read_scrollback_len,
         }
     }
 

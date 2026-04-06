@@ -11,7 +11,7 @@ use vte::Parser;
 use std::process::Command;
 
 /// Allowed terminal sizes
-const ALLOWED_SIZES: [(usize, usize); 2] = [(80, 24), (120, 40)];
+const ALLOWED_SIZES: [(usize, usize); 4] = [(80, 24), (120, 40), (160, 40), (200, 50)];
 const DEFAULT_MAX_SCROLLBACK: usize = 10_000;
 
 /// Check if a shell can be found
@@ -67,7 +67,7 @@ impl TerminalEmulator {
             return Err(std::io::Error::new(
                 std::io::ErrorKind::InvalidInput,
                 format!(
-                    "Invalid terminal size {}x{}. Allowed: 80x24 or 120x40",
+                    "Invalid terminal size {}x{}. Allowed: 80x24, 120x40, 160x40, 200x50",
                     cols, rows
                 ),
             ));

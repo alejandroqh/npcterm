@@ -27,6 +27,7 @@ pub struct TerminalStatus {
     pub pending_events: usize,
     pub size: (usize, usize),
     pub scrollback_lines: usize,
+    pub has_new_content: bool,
 }
 
 impl std::fmt::Display for TerminalState {

@@ -219,6 +219,43 @@ pub fn last_n_lines(grid: &TerminalGrid, n: usize) -> Vec<String> {
     lines
 }
 
+/// Read only the specified dirty rows as text with coordinate overlay
+pub fn read_changed_rows_text(grid: &TerminalGrid, dirty_indices: &[usize]) -> String {
+    let cols = grid.cols();
+    let mut output = String::with_capacity((cols + 4) * (dirty_indices.len() + 3));
+
+    write_column_header(&mut output, cols);
+
+    let screen_rows = grid.get_rows();
+    for &y in dirty_indices {
+        if let Some(row) = screen_rows.get(y) {
+            let trim = trim_end_index(row, cols);
+            if trim == 0 {
+                let _ = write!(output, "{:02}\n", y);
+            } else {
+                let _ = write!(output, "{:02} ", y);
+                push_row_cells(&mut output, row, trim);
+                output.push('\n');
+            }
+        }
+    }
+
+    output
+}
+
+/// Append scrollback lines directly to output as plain text (trimmed)
+pub fn append_scrollback_lines(
+    output: &mut String,
+    scrollback: &VecDeque<Vec<TerminalCell>>,
+    start: usize,
+    end: usize,
+) {
+    for i in start..end.min(scrollback.len()) {
+        output.push_str(&line_to_string(&scrollback[i]));
+        output.push('\n');
+    }
+}
+
 fn line_to_string(cells: &[TerminalCell]) -> String {
     let end = trim_end_index(cells, cells.len());
     cells[..end].iter().map(|c| c.c).collect()

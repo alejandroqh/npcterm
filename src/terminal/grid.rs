@@ -67,10 +67,13 @@ pub struct TerminalGrid {
     generation: u64,
 
     // === NpcTerm39 additions ===
-    /// Track which rows changed since last read
+    /// Track which rows changed since last read (consumed by tick/events)
     dirty_rows: Vec<bool>,
     /// Global dirty flag
     dirty_flag: bool,
+    /// Track which rows changed since last agent read (independent from tick)
+    read_dirty_rows: Vec<bool>,
+    read_dirty_flag: bool,
     /// Bell character received
     pub bell_pending: bool,
 }
@@ -121,6 +124,8 @@ impl TerminalGrid {
             generation: 0,
             dirty_rows: vec![false; rows],
             dirty_flag: false,
+            read_dirty_rows: vec![true; rows],
+            read_dirty_flag: true,
             bell_pending: false,
         }
     }
@@ -160,18 +165,21 @@ impl TerminalGrid {
         &self.scrollback
     }
 
-    /// Take dirty rows (returns changed indices and clears tracking)
-    pub fn take_dirty_rows(&mut self) -> Vec<usize> {
-        let dirty: Vec<usize> = self
-            .dirty_rows
+    fn drain_dirty_vec(flags: &mut Vec<bool>) -> Vec<usize> {
+        let dirty: Vec<usize> = flags
             .iter()
             .enumerate()
             .filter(|(_, d)| **d)
             .map(|(i, _)| i)
             .collect();
-        self.dirty_rows.fill(false);
-        self.dirty_flag = false;
+        flags.fill(false);
         dirty
+    }
+
+    /// Take dirty rows (returns changed indices and clears tracking)
+    pub fn take_dirty_rows(&mut self) -> Vec<usize> {
+        self.dirty_flag = false;
+        Self::drain_dirty_vec(&mut self.dirty_rows)
     }
 
     /// Check if screen has changed since last read
@@ -189,16 +197,37 @@ impl TerminalGrid {
             .collect()
     }
 
+    /// Take read-dirty rows (returns changed indices and clears read tracking)
+    pub fn take_read_dirty_rows(&mut self) -> Vec<usize> {
+        self.read_dirty_flag = false;
+        Self::drain_dirty_vec(&mut self.read_dirty_rows)
+    }
+
+    /// Clear read-dirty state without allocating
+    pub fn clear_read_dirty(&mut self) {
+        self.read_dirty_rows.fill(false);
+        self.read_dirty_flag = false;
+    }
+
+    /// Check if any rows have changed since last agent read
+    pub fn has_read_dirty(&self) -> bool {
+        self.read_dirty_flag
+    }
+
     fn mark_dirty(&mut self, row: usize) {
         if row < self.dirty_rows.len() {
             self.dirty_rows[row] = true;
+            self.read_dirty_rows[row] = true;
         }
         self.dirty_flag = true;
+        self.read_dirty_flag = true;
     }
 
     fn mark_all_dirty(&mut self) {
         self.dirty_rows.fill(true);
+        self.read_dirty_rows.fill(true);
         self.dirty_flag = true;
+        self.read_dirty_flag = true;
     }
 
     /// Get the currently active character set

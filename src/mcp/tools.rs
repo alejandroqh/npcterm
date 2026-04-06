@@ -28,11 +28,11 @@ pub fn tool_definitions() -> Vec<ToolDef> {
     vec![
         ToolDef {
             name: "terminal_create".into(),
-            description: "Create a new terminal instance. Returns {id, cols, rows}. The id is required for all subsequent terminal operations. Pass size '120x40' only if you need a larger terminal.".into(),
+            description: "Create a new terminal instance. Returns {id, cols, rows}. The id is required for all subsequent terminal operations. Available sizes: 80x24 (default), 120x40, 160x40, 200x50.".into(),
             input_schema: json!({
                 "type": "object",
                 "properties": {
-                    "size": { "type": "string", "enum": ["80x24", "120x40"], "default": "80x24" },
+                    "size": { "type": "string", "enum": ["80x24", "120x40", "160x40", "200x50"], "default": "80x24" },
                     "shell": { "type": "string", "description": "Shell path (optional)" }
                 }
             }),
@@ -100,10 +100,14 @@ pub fn tool_definitions() -> Vec<ToolDef> {
         },
         ToolDef {
             name: "terminal_read_screen".into(),
-            description: "Read terminal screen with coordinate overlay (column/row headers for precise navigation). Use this for programmatic cell targeting.".into(),
+            description: "Read terminal screen with coordinate overlay. Use mode 'changes' to see only new output since your last read (default 50 lines, max 200). Default mode 'full' returns the complete screen.".into(),
             input_schema: json!({
                 "type": "object",
-                "properties": { "id": { "type": "string" } },
+                "properties": {
+                    "id": { "type": "string" },
+                    "mode": { "type": "string", "enum": ["full", "changes"], "default": "full" },
+                    "max_lines": { "type": "integer", "default": 50, "description": "Max lines to return in 'changes' mode (1-200)" }
+                },
                 "required": ["id"]
             }),
         },
@@ -203,6 +207,8 @@ pub fn handle_tool_call(
             let size = args.get("size").and_then(|v| v.as_str()).unwrap_or("80x24");
             let (cols, rows) = match size {
                 "120x40" => (120, 40),
+                "160x40" => (160, 40),
+                "200x50" => (200, 50),
                 _ => (80, 24),
             };
             let shell = args.get("shell").and_then(|v| v.as_str());
@@ -300,11 +306,20 @@ pub fn handle_tool_call(
         }
 
         "terminal_read_screen" => {
+            let mode = args.get("mode").and_then(|v| v.as_str()).unwrap_or("full");
+            let max_lines = args
+                .get("max_lines")
+                .and_then(|v| v.as_u64())
+                .map(|v| (v as usize).clamp(1, 200))
+                .unwrap_or(50);
             let instance = match get_instance(registry, args) {
                 Ok(i) => i,
                 Err(e) => return e,
             };
-            ToolCallResult::text(instance.read_screen())
+            match mode {
+                "changes" => ToolCallResult::text(instance.read_changes(max_lines)),
+                _ => ToolCallResult::text(instance.read_screen()),
+            }
         }
 
         "terminal_show_screen" => {
