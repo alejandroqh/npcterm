@@ -51,41 +51,18 @@ The binary will be at `target/release/npcterm`.
 
 ### OpenClaw
 
-[OpenClaw](https://openclaw.ai/) has built-in MCP support. First install NPCterm:
+[OpenClaw](https://openclaw.ai/) has built-in MCP support. Install NPCterm as a plugin directly:
 
 ```bash
-cargo install npcterm
+# From the GitHub repo
+openclaw plugins install https://github.com/alejandroqh/npcterm.git
+
+# Or from a local clone
+git clone https://github.com/alejandroqh/npcterm.git
+openclaw plugins install ./npcterm
 ```
 
-Then register it as an MCP server:
-
-```bash
-openclaw mcp set npcterm '{"command":"npcterm","args":[]}'
-openclaw gateway restart
-```
-
-Or add it manually to `~/.openclaw/openclaw.json`:
-
-```json5
-{
-  "mcp": {
-    "servers": {
-      "npcterm": {
-        "command": "npcterm",
-        "args": []
-      }
-    }
-  }
-}
-```
-
-If you downloaded a pre-built binary instead, use the full path:
-
-```bash
-openclaw mcp set npcterm '{"command":"/path/to/npcterm","args":[]}'
-```
-
-Once registered, all 15 NPCterm tools will be available to your OpenClaw agent as `npcterm__terminal_create`, `npcterm__terminal_send_keys`, etc.
+Once installed, all 15 NPCterm tools will be available to your OpenClaw agent as `npcterm__terminal_create`, `npcterm__terminal_send_keys`, etc.
 
 Verify the server is registered with:
 
@@ -123,17 +100,17 @@ NPCterm is an MCP server. It communicates over stdin/stdout using JSON-RPC. To u
 
 | Tool | Description |
 |------|-------------|
-| `terminal_create` | Spawn a new terminal (80x24 or 120x40) |
+| `terminal_create` | Spawn a new terminal (80x24, 120x40, 160x40, or 200x50) |
 | `terminal_destroy` | Destroy a terminal and its PTY |
 | `terminal_list` | List all active terminals |
 | `terminal_send_key` | Send a single keystroke |
 | `terminal_send_keys` | Send a sequence of keystrokes |
 | `terminal_mouse` | Send mouse events (click, scroll, drag) |
-| `terminal_read_screen` | Read the full screen buffer |
+| `terminal_read_screen` | Read the screen buffer (full or `mode: "changes"` for incremental reads, with configurable `max_lines`) |
 | `terminal_show_screen` | Read screen with coordinate overlay headers |
 | `terminal_read_rows` | Read specific rows from the screen |
 | `terminal_read_region` | Read a rectangular region of the screen |
-| `terminal_status` | Get terminal status and process state |
+| `terminal_status` | Get terminal status, process state, and `has_new_content` flag |
 | `terminal_poll_events` | Poll the event queue |
 | `terminal_select` | Select text on screen |
 | `terminal_scroll` | Scroll the terminal viewport |
