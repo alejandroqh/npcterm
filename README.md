@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/claude.png" alt="NPCterm"  width="400">
+  <img src="docs/claude.png" alt="NPCterm"  width="700">
 </p>
 
 # NPCterm
