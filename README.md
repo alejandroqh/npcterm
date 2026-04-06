@@ -119,6 +119,10 @@ MCP Server (stdio JSON-RPC)
 
 Each terminal spawns a background PTY reader thread. A global tick thread (10ms interval) drains PTY output through the VTE parser, detects process state changes, and emits events.
 
+## Engine
+
+Ported from project [term39](https://github.com/alejandroqh/term39)
+
 ## Security Considerations
 
 NPCterm provides **unrestricted shell access** to whatever agent connects to it. Before deploying:
