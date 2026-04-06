@@ -23,15 +23,85 @@ NPCterm gives AI agents **full terminal access**. The ability to spawn shells, r
 
 ## Install
 
+### Option 1: Install with Cargo (recommended)
+
 ```bash
-cargo build npcterm
+cargo install npcterm
 ```
 
-## Usage
+This installs `npcterm` to your Cargo bin directory (usually `~/.cargo/bin/`), making it available system-wide.
 
-NPCterm is an MCP server. It communicates over stdin/stdout using JSON-RPC. To use it, configure it as an MCP server in your AI agent's MCP configuration.
+### Option 2: Download pre-built binaries
 
-### MCP Configuration Example
+Pre-built binaries are available in the [`dist/`](dist/) directory for:
+
+- macOS ARM64 (Apple Silicon) / x64 (Intel)
+- Linux ARM64 / x64
+- Windows x64
+
+Download the binary for your platform and place it somewhere in your `PATH`.
+
+### Option 3: Build from source
+
+```bash
+cargo build --release
+```
+
+The binary will be at `target/release/npcterm`.
+
+### OpenClaw
+
+[OpenClaw](https://openclaw.ai/) has built-in MCP support. First install NPCterm:
+
+```bash
+cargo install npcterm
+```
+
+Then register it as an MCP server:
+
+```bash
+openclaw mcp set npcterm '{"command":"npcterm","args":[]}'
+openclaw gateway restart
+```
+
+Or add it manually to `~/.openclaw/openclaw.json`:
+
+```json5
+{
+  "mcp": {
+    "servers": {
+      "npcterm": {
+        "command": "npcterm",
+        "args": []
+      }
+    }
+  }
+}
+```
+
+If you downloaded a pre-built binary instead, use the full path:
+
+```bash
+openclaw mcp set npcterm '{"command":"/path/to/npcterm","args":[]}'
+```
+
+Once registered, all 15 NPCterm tools will be available to your OpenClaw agent as `npcterm__terminal_create`, `npcterm__terminal_send_keys`, etc.
+
+Verify the server is registered with:
+
+```bash
+openclaw mcp list
+```
+
+### Claude Desktop / Claude Code
+
+First install NPCterm:
+
+```bash
+cargo install npcterm
+```
+
+Then add it to your MCP configuration:
 
 ```json
 {
@@ -42,6 +112,12 @@ NPCterm is an MCP server. It communicates over stdin/stdout using JSON-RPC. To u
   }
 }
 ```
+
+If you downloaded a pre-built binary instead, use the full path as the `"command"` value.
+
+## Usage
+
+NPCterm is an MCP server. It communicates over stdin/stdout using JSON-RPC. To use it, configure it as an MCP server in your AI agent's MCP configuration (see install instructions above).
 
 ### Available Tools
 

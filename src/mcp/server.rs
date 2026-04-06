@@ -64,7 +64,7 @@ fn handle_request(
             let result = json!({
                 "protocolVersion": "2024-11-05",
                 "capabilities": { "tools": {} },
-                "serverInfo": { "name": "npcterm39", "version": "1.0.0" }
+                "serverInfo": { "name": "npcterm39", "version": "1.1.0" }
             });
             Some(JsonRpcResponse::success(request.id.clone(), result))
         }

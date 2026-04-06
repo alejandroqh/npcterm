@@ -4,6 +4,19 @@ All notable changes to NPCterm39 will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [v1.1.0] - 2026-04-06
+
+### Added
+
+- Incremental screen reads: `terminal_read_screen` now supports `mode: "changes"` to return only new output since the last read, with configurable `max_lines` (1-200, default 50)
+- Wider terminal sizes: 160x40 and 200x50 in addition to 80x24 and 120x40
+- `has_new_content` field in `terminal_status` response indicating unread output
+- Independent read-dirty tracking in grid (separate from tick/event dirty state)
+- OpenClaw plugin support with `.mcp.json` bundle configuration
+- OpenClaw install instructions in README
+- Expanded install section: `cargo install`, pre-built binaries, and build from source
+- Claude Desktop / Claude Code setup instructions in README
+
 ## [v1.0.0] - 2026-04-05
 
 ### Added
