@@ -4,6 +4,26 @@ All notable changes to NPCterm39 will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [v1.2.0] - 2026-04-07
+
+### Changed
+
+- Migrated MCP server layer from hand-rolled JSON-RPC implementation to [TurboMCP](https://github.com/Epistates/turbomcp) 3.0 SDK
+- Server is now async, powered by tokio (`current_thread` runtime)
+- Tool definitions use `#[tool]` attribute macros with auto-generated JSON schemas from Rust function signatures
+- MCP protocol version support expanded: `2024-11-05`, `2025-06-18`, and `2025-11-25` (multi-version negotiation)
+
+### Removed
+
+- Custom JSON-RPC types (`JsonRpcRequest`, `JsonRpcResponse`, `ToolDef`, `ToolCallResult`) — replaced by TurboMCP's protocol layer
+- Manual tool definitions and dispatch logic (624 lines replaced by ~280 lines of annotated methods)
+
+### Notes
+
+- No changes to terminal emulation, PTY handling, input, screen reading, or event system
+- External behavior (tool names, descriptions, parameters, responses) is unchanged
+- Binary size increased slightly due to tokio/turbomcp dependencies
+
 ## [v1.1.0] - 2026-04-06
 
 ### Added

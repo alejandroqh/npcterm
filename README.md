@@ -13,7 +13,9 @@ NPCterm gives AI agents **full terminal access**. The ability to spawn shells, r
 ## Features
 
 - **Full ANSI/VT100 terminal emulation** with PTY spawning via `portable-pty`
-- **15 MCP tools** for complete terminal control over JSON-RPC stdio
+- **14 MCP tools** for complete terminal control over JSON-RPC stdio
+- **Built on [TurboMCP](https://github.com/Epistates/turbomcp) 3.0** -- production-grade MCP SDK with auto-generated tool schemas
+- **Multi-version MCP protocol support** -- compatible with clients using `2024-11-05`, `2025-06-18`, or `2025-11-25` spec versions
 - **Incremental screen reads** with dirty-row tracking for efficient output consumption
 - **Process state detection** -- knows when a command is running, idle, waiting for input, or exited
 - **Event system** -- ring buffer of terminal events (CommandFinished, WaitingForInput, Bell, etc.)
@@ -62,7 +64,7 @@ git clone https://github.com/alejandroqh/npcterm.git
 openclaw plugins install ./npcterm
 ```
 
-Once installed, all 15 NPCterm tools will be available to your OpenClaw agent as `npcterm__terminal_create`, `npcterm__terminal_send_keys`, etc.
+Once installed, all 14 NPCterm tools will be available to your OpenClaw agent as `npcterm__terminal_create`, `npcterm__terminal_send_keys`, etc.
 
 Verify the server is registered with:
 
@@ -159,9 +161,9 @@ Full system monitoring with `btop`, launched, read, and navigated entirely by an
 ## Architecture
 
 ```
-MCP Server (stdio JSON-RPC)
+TurboMCP Server (stdio JSON-RPC)
        |
-  Tool Handlers (15 tools)
+  NpcTermServer (14 #[tool] methods)
        |
   TerminalRegistry (concurrent terminal management)
        |
@@ -174,7 +176,7 @@ MCP Server (stdio JSON-RPC)
     '-- PTY (portable-pty)
 ```
 
-Each terminal spawns a background PTY reader thread. A global tick thread (10ms interval) drains PTY output through the VTE parser, detects process state changes, and emits events.
+The MCP layer is powered by [TurboMCP](https://github.com/Epistates/turbomcp) 3.0, which handles JSON-RPC protocol framing, tool schema generation, and request dispatch. Each terminal spawns a background PTY reader thread. A global tick thread (10ms interval) drains PTY output through the VTE parser, detects process state changes, and emits events.
 
 ## Engine
 
