@@ -146,7 +146,7 @@ NPCterm is an MCP server. It communicates over stdin/stdout using JSON-RPC. To u
   <img src="docs/claude.png" alt="Codex contolled by Claude"  width="700">
 </p>
 
-NPCterm39 gives AI agents full TUI interaction: opening, navigating, and closing interactive programs like `vim`, `htop`, `less`, or any curses-based application.
+NPCterm gives AI agents full TUI interaction: opening, navigating, and closing interactive programs like `vim`, `htop`, `less`, or any curses-based application.
 
 ### Example: btop running inside NPCterm, controlled by an agent
 
