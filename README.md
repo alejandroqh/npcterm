@@ -15,10 +15,10 @@ NPCterm gives AI agents **full terminal access**. The ability to spawn shells, r
 - **Full ANSI/VT100 terminal emulation** with PTY spawning via `portable-pty`
 - **14 MCP tools** for complete terminal control over JSON-RPC stdio
 - **Built on [TurboMCP](https://github.com/Epistates/turbomcp) 3.0** -- production-grade MCP SDK with auto-generated tool schemas
-- **Multi-version MCP protocol support** -- compatible with clients using `2024-11-05`, `2025-06-18`, or `2025-11-25` spec versions
+- **Multi-version MCP protocol support**: compatible with clients using `2024-11-05`, `2025-06-18`, or `2025-11-25` spec versions
 - **Incremental screen reads** with dirty-row tracking for efficient output consumption
-- **Process state detection** -- knows when a command is running, idle, waiting for input, or exited
-- **Event system** -- ring buffer of terminal events (CommandFinished, WaitingForInput, Bell, etc.)
+- **Process state detection**: knows when a command is running, idle, waiting for input, or exited
+- **Event system**: ring buffer of terminal events (CommandFinished, WaitingForInput, Bell, etc.)
 - **AI-friendly coordinate overlay** for precise screen navigation
 - **Mouse, selection, and scroll support** for interacting with TUI applications
 - **Multiple concurrent terminals** with short 2-character IDs
