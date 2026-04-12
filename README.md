@@ -166,7 +166,9 @@ Full system monitoring with `btop`, launched, read, and navigated entirely by an
 
 NPCterm includes a built-in web-based debug viewer that lets you watch your agent work in real time. Start it on-demand with the `viewer_start` MCP tool or open it directly in your browser with `viewer_open`.
 
-<!-- TODO: add demo video -->
+<p align="center">
+  <img src="docs/debug.png" alt="NPCterm"  width="800">
+</p>
 
 The viewer provides:
 
