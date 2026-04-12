@@ -1,0 +1,11 @@
+{
+  "name": "@npcterm/openclaw-npcterm",
+  "version": "1.3.0",
+  "description": "OpenClaw native plugin for NPCterm - headless terminal emulator MCP server for AI agents",
+  "type": "module",
+  "openclaw": {
+    "extensions": ["./index.ts"]
+  },
+  "keywords": ["openclaw", "plugin", "terminal", "emulator", "pty", "mcp", "ai-agent"],
+  "license": "Apache-2.0"
+}

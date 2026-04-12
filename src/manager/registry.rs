@@ -7,7 +7,7 @@ use crate::status::query::TerminalState;
 use super::instance::TerminalInstance;
 
 /// Summary info for a terminal instance
-#[derive(Debug, Serialize)]
+#[derive(Debug, Clone, Serialize)]
 pub struct TerminalInfo {
     pub id: String,
     pub cols: usize,
@@ -104,6 +104,12 @@ impl TerminalRegistry {
         for instance in self.instances.values_mut() {
             instance.tick();
         }
+    }
+
+    /// Iterate over all instances mutably (for viewer dirty drain)
+    #[cfg_attr(not(feature = "viewer"), allow(dead_code))]
+    pub fn instances_mut(&mut self) -> impl Iterator<Item = &mut TerminalInstance> {
+        self.instances.values_mut()
     }
 }
 

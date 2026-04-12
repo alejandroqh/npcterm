@@ -377,6 +377,26 @@ impl TerminalInstance {
         self.cached_process_name.clone()
     }
 
+    // --- Viewer support ---
+
+    /// Get a reference to the grid (for viewer span compression)
+    #[cfg(feature = "viewer")]
+    pub fn grid(&self) -> &crate::terminal::grid::TerminalGrid {
+        &self.emulator.grid
+    }
+
+    /// Take viewer-dirty row indices (clears viewer dirty state)
+    #[cfg(feature = "viewer")]
+    pub fn take_viewer_dirty(&mut self) -> Vec<usize> {
+        self.emulator.grid.take_viewer_dirty_rows()
+    }
+
+    /// Check if any rows changed since last viewer broadcast
+    #[cfg(feature = "viewer")]
+    pub fn has_viewer_dirty(&self) -> bool {
+        self.emulator.grid.has_viewer_dirty()
+    }
+
     // --- Private helpers ---
 
     fn refresh_process_name(&mut self) {

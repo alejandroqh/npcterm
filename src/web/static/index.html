@@ -1,0 +1,571 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>npcterm viewer</title>
+<style>
+:root {
+  --bg: #1a1b26;
+  --fg: #c0caf5;
+  --panel-bg: #16161e;
+  --border: #292e42;
+  --accent: #7aa2f7;
+  --success: #9ece6a;
+  --warning: #e0af68;
+  --error: #f7768e;
+  --dim: #565f89;
+}
+* { margin: 0; padding: 0; box-sizing: border-box; font-family: inherit; }
+body {
+  font-family: 'MesloLGS Nerd Font', 'MesloLGM Nerd Font', 'Iosevka Nerd Font', 'JetBrainsMono Nerd Font', 'Hack Nerd Font', 'FiraCode Nerd Font', 'SF Mono', 'Fira Code', monospace;
+  background: var(--bg);
+  color: var(--fg);
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+#topbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 16px;
+  background: var(--panel-bg);
+  border-bottom: 1px solid var(--border);
+  font-size: 13px;
+  flex-shrink: 0;
+}
+#topbar .logo { color: var(--accent); font-weight: bold; font-size: 14px; }
+#topbar select {
+  background: var(--bg);
+  color: var(--fg);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 4px 8px;
+  font-size: 12px;
+}
+#topbar .status {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+}
+#topbar .status .dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--error);
+}
+#topbar .status .dot.connected { background: var(--success); }
+#topbar .info { color: var(--dim); font-size: 12px; }
+#main {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+}
+#terminal-panel {
+  flex: 3;
+  display: flex;
+  flex-direction: column;
+  overflow: auto;
+  padding: 8px;
+  background: var(--bg);
+}
+#coord-header {
+  color: var(--dim);
+  font-size: 12px;
+  line-height: 1.3;
+  white-space: pre;
+  padding-left: 32px;
+  flex-shrink: 0;
+}
+#screen-container {
+  display: flex;
+  flex-shrink: 0;
+}
+#row-numbers {
+  color: var(--dim);
+  font-size: 12px;
+  line-height: 1.3;
+  text-align: right;
+  padding-right: 8px;
+  white-space: pre;
+  flex-shrink: 0;
+  user-select: none;
+  min-width: 24px;
+}
+#screen {
+  font-size: 12px;
+  line-height: 1.3;
+  white-space: pre;
+  position: relative;
+}
+#cursor-overlay {
+  position: absolute;
+  width: 0.6em;
+  height: 1.3em;
+  background: var(--fg);
+  opacity: 0.7;
+  pointer-events: none;
+  animation: blink 1s step-end infinite;
+}
+#cursor-overlay.hidden { display: none; }
+#cursor-overlay.bar { width: 2px; }
+#cursor-overlay.underline { height: 2px; margin-top: 1.1em; }
+@keyframes blink {
+  50% { opacity: 0; }
+}
+.screen-row { height: 1.3em; }
+#activity-panel {
+  flex: 1;
+  min-width: 280px;
+  max-width: 400px;
+  display: flex;
+  flex-direction: column;
+  border-left: 1px solid var(--border);
+  background: var(--panel-bg);
+}
+#activity-header {
+  padding: 8px 12px;
+  font-size: 13px;
+  font-weight: bold;
+  border-bottom: 1px solid var(--border);
+  color: var(--accent);
+  flex-shrink: 0;
+}
+#activity-log {
+  flex: 1;
+  overflow-y: auto;
+  padding: 4px 0;
+}
+.log-entry {
+  padding: 4px 12px;
+  font-size: 11px;
+  border-bottom: 1px solid var(--border);
+  line-height: 1.4;
+}
+.log-entry .timestamp { color: var(--dim); margin-right: 6px; }
+.log-entry .badge {
+  display: inline-block;
+  padding: 1px 5px;
+  border-radius: 3px;
+  font-size: 10px;
+  font-weight: bold;
+  margin-right: 4px;
+}
+.badge-input { background: #1e3a5f; color: #7aa2f7; }
+.badge-mouse { background: #3d2e1f; color: #e0af68; }
+.badge-read { background: #1e3f2e; color: #9ece6a; }
+.badge-lifecycle { background: #3f1e2e; color: #f7768e; }
+.badge-other { background: #2e2e3f; color: #bb9af7; }
+.log-entry .tid { color: var(--accent); margin-right: 4px; }
+.log-entry .params { color: var(--dim); }
+.log-entry .summary { color: var(--fg); }
+#empty-state {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: var(--dim);
+  font-size: 14px;
+}
+
+/* Named terminal colors */
+.c-default { }
+</style>
+</head>
+<body>
+<div id="topbar">
+  <span class="logo">npcterm viewer</span>
+  <select id="terminal-select">
+    <option value="">-- no terminals --</option>
+  </select>
+  <span class="info" id="term-info"></span>
+  <div class="status">
+    <div class="dot" id="status-dot"></div>
+    <span id="status-text">disconnected</span>
+  </div>
+</div>
+<div id="main">
+  <div id="terminal-panel">
+    <div id="coord-header"></div>
+    <div id="screen-container">
+      <div id="row-numbers"></div>
+      <div id="screen">
+        <div id="cursor-overlay" class="hidden"></div>
+        <div id="empty-state">No terminal selected</div>
+      </div>
+    </div>
+  </div>
+  <div id="activity-panel">
+    <div id="activity-header">Activity Log</div>
+    <div id="activity-log"></div>
+  </div>
+</div>
+
+<script>
+// --- Color mapping ---
+const NAMED_COLORS = {
+  'Black': '#15161e', 'Red': '#f7768e', 'Green': '#9ece6a', 'Yellow': '#e0af68',
+  'Blue': '#7aa2f7', 'Magenta': '#bb9af7', 'Cyan': '#7dcfff', 'White': '#c0caf5',
+  'BrightBlack': '#414868', 'BrightRed': '#f7768e', 'BrightGreen': '#9ece6a',
+  'BrightYellow': '#e0af68', 'BrightBlue': '#7aa2f7', 'BrightMagenta': '#bb9af7',
+  'BrightCyan': '#7dcfff', 'BrightWhite': '#ffffff'
+};
+
+// xterm-256 colors
+const INDEXED_COLORS = (function() {
+  const c = new Array(256);
+  // Standard 16 colors
+  const std = ['#000000','#800000','#008000','#808000','#000080','#800080','#008080','#c0c0c0',
+               '#808080','#ff0000','#00ff00','#ffff00','#0000ff','#ff00ff','#00ffff','#ffffff'];
+  for (let i = 0; i < 16; i++) c[i] = std[i];
+  // 216 color cube
+  const vals = [0, 95, 135, 175, 215, 255];
+  for (let i = 0; i < 216; i++) {
+    const r = vals[Math.floor(i / 36)];
+    const g = vals[Math.floor(i / 6) % 6];
+    const b = vals[i % 6];
+    c[16 + i] = `rgb(${r},${g},${b})`;
+  }
+  // Grayscale ramp
+  for (let i = 0; i < 24; i++) {
+    const v = 8 + i * 10;
+    c[232 + i] = `rgb(${v},${v},${v})`;
+  }
+  return c;
+})();
+
+function colorToCSS(color) {
+  if (!color || color === 'default') return null;
+  if (typeof color === 'object') {
+    if (color.Named) return NAMED_COLORS[color.Named] || null;
+    if (color.Indexed !== undefined) return INDEXED_COLORS[color.Indexed] || null;
+    if (color.Rgb) return `rgb(${color.Rgb[0]},${color.Rgb[1]},${color.Rgb[2]})`;
+  }
+  return null;
+}
+
+// --- State ---
+let ws = null;
+let reconnectDelay = 1000;
+let currentTerminal = null;
+let screenRows = []; // array of DOM elements
+let termCols = 80;
+let termRows = 24;
+let autoScroll = true;
+
+const termSelect = document.getElementById('terminal-select');
+const termInfo = document.getElementById('term-info');
+const statusDot = document.getElementById('status-dot');
+const statusText = document.getElementById('status-text');
+const coordHeader = document.getElementById('coord-header');
+const rowNumbers = document.getElementById('row-numbers');
+const screenEl = document.getElementById('screen');
+const cursorEl = document.getElementById('cursor-overlay');
+const emptyState = document.getElementById('empty-state');
+const activityLog = document.getElementById('activity-log');
+
+// --- WebSocket ---
+function connect() {
+  const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+  ws = new WebSocket(`${proto}//${location.host}/ws`);
+
+  ws.onopen = () => {
+    statusDot.classList.add('connected');
+    statusText.textContent = 'connected';
+    reconnectDelay = 1000;
+    ws.send(JSON.stringify({ type: 'list_terminals' }));
+    if (currentTerminal) {
+      ws.send(JSON.stringify({ type: 'subscribe', terminal_id: currentTerminal }));
+    }
+  };
+
+  ws.onclose = () => {
+    statusDot.classList.remove('connected');
+    statusText.textContent = 'reconnecting...';
+    setTimeout(connect, reconnectDelay);
+    reconnectDelay = Math.min(reconnectDelay * 1.5, 10000);
+  };
+
+  ws.onerror = () => ws.close();
+
+  ws.onmessage = (e) => {
+    const msg = JSON.parse(e.data);
+    handleMessage(msg);
+  };
+}
+
+function handleMessage(msg) {
+  switch (msg.type) {
+    case 'terminal_list':
+      updateTerminalList(msg.terminals);
+      break;
+    case 'screen_snapshot':
+      applySnapshot(msg);
+      break;
+    case 'screen_update':
+      applyUpdate(msg);
+      break;
+    case 'terminal_event':
+      addEventEntry(msg);
+      break;
+    case 'interaction':
+      addInteraction(msg.entry);
+      break;
+  }
+}
+
+// --- Terminal list ---
+function updateTerminalList(terminals) {
+  const prev = termSelect.value;
+  termSelect.innerHTML = '';
+  if (terminals.length === 0) {
+    termSelect.innerHTML = '<option value="">-- no terminals --</option>';
+    return;
+  }
+  for (const t of terminals) {
+    const opt = document.createElement('option');
+    opt.value = t.id;
+    opt.textContent = `${t.id} (${t.cols}x${t.rows}) [${t.state}]`;
+    termSelect.appendChild(opt);
+  }
+  // Auto-select first if nothing selected, or restore previous
+  if (prev && terminals.some(t => t.id === prev)) {
+    termSelect.value = prev;
+  } else if (!currentTerminal && terminals.length > 0) {
+    termSelect.value = terminals[0].id;
+    subscribeTerminal(terminals[0].id);
+  }
+}
+
+termSelect.addEventListener('change', () => {
+  const id = termSelect.value;
+  if (id) subscribeTerminal(id);
+});
+
+function subscribeTerminal(id) {
+  currentTerminal = id;
+  if (ws && ws.readyState === WebSocket.OPEN) {
+    ws.send(JSON.stringify({ type: 'subscribe', terminal_id: id }));
+  }
+}
+
+// --- Screen rendering ---
+function applySnapshot(msg) {
+  termCols = msg.cols;
+  termRows = msg.rows;
+  termInfo.textContent = `${msg.cols}x${msg.rows} | ${msg.state}`;
+  emptyState.style.display = 'none';
+
+  // Build coordinate header
+  buildCoordHeader(msg.cols);
+  buildRowNumbers(msg.rows);
+
+  // Clear and rebuild screen rows
+  // Remove all children except cursor overlay
+  while (screenEl.firstChild && screenEl.firstChild !== cursorEl) {
+    screenEl.removeChild(screenEl.firstChild);
+  }
+  // Also remove any after cursor
+  while (cursorEl.nextSibling) {
+    screenEl.removeChild(cursorEl.nextSibling);
+  }
+
+  screenRows = [];
+  for (let i = 0; i < msg.rows; i++) {
+    const rowDiv = document.createElement('div');
+    rowDiv.className = 'screen-row';
+    screenEl.insertBefore(rowDiv, cursorEl);
+    screenRows.push(rowDiv);
+  }
+
+  // Render all rows
+  for (const wsRow of msg.screen_rows) {
+    if (wsRow.row < screenRows.length) {
+      renderRow(screenRows[wsRow.row], wsRow.spans);
+    }
+  }
+
+  updateCursor(msg.cursor);
+}
+
+function applyUpdate(msg) {
+  termInfo.textContent = `${termCols}x${termRows} | ${msg.state}`;
+  for (const wsRow of msg.changed_rows) {
+    if (wsRow.row < screenRows.length) {
+      renderRow(screenRows[wsRow.row], wsRow.spans);
+    }
+  }
+  updateCursor(msg.cursor);
+}
+
+function renderRow(rowDiv, spans) {
+  rowDiv.innerHTML = '';
+  if (!spans || spans.length === 0) return;
+  for (const span of spans) {
+    const el = document.createElement('span');
+    el.textContent = span.text;
+    const fg = colorToCSS(span.fg);
+    const bg = colorToCSS(span.bg);
+    if (fg) el.style.color = fg;
+    if (bg) el.style.backgroundColor = bg;
+    const a = span.attrs;
+    if (a) {
+      if (a.bold) el.style.fontWeight = 'bold';
+      if (a.dim) el.style.opacity = '0.5';
+      if (a.italic) el.style.fontStyle = 'italic';
+      let td = [];
+      if (a.underline) td.push('underline');
+      if (a.strikethrough) td.push('line-through');
+      if (td.length) el.style.textDecoration = td.join(' ');
+      if (a.reverse) {
+        const tmpFg = el.style.color;
+        el.style.color = el.style.backgroundColor || 'var(--bg)';
+        el.style.backgroundColor = tmpFg || 'var(--fg)';
+      }
+      if (a.hidden) el.style.visibility = 'hidden';
+    }
+    rowDiv.appendChild(el);
+  }
+}
+
+function updateCursor(cursor) {
+  if (!cursor || !cursor.visible) {
+    cursorEl.classList.add('hidden');
+    return;
+  }
+  cursorEl.classList.remove('hidden');
+  // Position based on character width and line height
+  const charW = getCharWidth();
+  const lineH = getLineHeight();
+  cursorEl.style.left = (cursor.x * charW) + 'px';
+  cursorEl.style.top = (cursor.y * lineH) + 'px';
+  cursorEl.style.width = charW + 'px';
+  cursorEl.style.height = lineH + 'px';
+
+  cursorEl.classList.remove('bar', 'underline');
+  if (cursor.shape === 'Bar') cursorEl.classList.add('bar');
+  else if (cursor.shape === 'Underline') cursorEl.classList.add('underline');
+}
+
+let _charWidth = null;
+let _lineHeight = null;
+function getCharWidth() {
+  if (_charWidth) return _charWidth;
+  const m = document.createElement('span');
+  m.style.font = getComputedStyle(screenEl).font;
+  m.style.visibility = 'hidden';
+  m.style.position = 'absolute';
+  m.textContent = 'X';
+  document.body.appendChild(m);
+  _charWidth = m.getBoundingClientRect().width;
+  document.body.removeChild(m);
+  return _charWidth;
+}
+function getLineHeight() {
+  if (_lineHeight) return _lineHeight;
+  const s = getComputedStyle(screenEl);
+  _lineHeight = parseFloat(s.lineHeight) || parseFloat(s.fontSize) * 1.3;
+  return _lineHeight;
+}
+
+function buildCoordHeader(cols) {
+  let header = '';
+  if (cols > 100) {
+    // Hundreds row
+    for (let i = 0; i < cols; i++) header += Math.floor(i / 100);
+    header += '\n';
+  }
+  // Tens row
+  for (let i = 0; i < cols; i++) header += Math.floor((i % 100) / 10);
+  header += '\n';
+  // Units row
+  for (let i = 0; i < cols; i++) header += (i % 10);
+  coordHeader.textContent = header;
+}
+
+function buildRowNumbers(rows) {
+  let nums = '';
+  for (let i = 0; i < rows; i++) {
+    nums += String(i).padStart(2, '0') + '\n';
+  }
+  rowNumbers.textContent = nums;
+}
+
+// --- Activity log ---
+function addInteraction(entry) {
+  const div = document.createElement('div');
+  div.className = 'log-entry';
+
+  const ts = new Date(entry.timestamp);
+  const timeStr = ts.toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' })
+    + '.' + String(ts.getMilliseconds()).padStart(3, '0');
+
+  const badgeClass = getBadgeClass(entry.tool);
+  const tidHtml = entry.terminal_id ? `<span class="tid">[${entry.terminal_id}]</span>` : '';
+  const summaryHtml = entry.summary ? `<span class="summary">${escapeHtml(entry.summary)}</span>` : '';
+  const paramsHtml = !entry.summary && entry.params ? `<span class="params">${escapeHtml(JSON.stringify(entry.params))}</span>` : '';
+
+  div.innerHTML = `<span class="timestamp">${timeStr}</span>`
+    + `<span class="badge ${badgeClass}">${escapeHtml(shortToolName(entry.tool))}</span>`
+    + tidHtml + (summaryHtml || paramsHtml);
+
+  const log = activityLog;
+  const wasAtBottom = log.scrollTop + log.clientHeight >= log.scrollHeight - 20;
+  log.appendChild(div);
+
+  // Cap entries
+  while (log.children.length > 500) log.removeChild(log.firstChild);
+
+  if (wasAtBottom) log.scrollTop = log.scrollHeight;
+}
+
+function addEventEntry(msg) {
+  const entry = {
+    timestamp: new Date().toISOString(),
+    tool: 'event:' + msg.event.type,
+    terminal_id: msg.terminal_id,
+    params: msg.event,
+    success: true,
+    summary: formatEvent(msg.event),
+  };
+  addInteraction(entry);
+}
+
+function formatEvent(evt) {
+  switch (evt.type) {
+    case 'command_finished': return `exit code ${evt.exit_code}`;
+    case 'waiting_for_input': return 'shell ready';
+    case 'bell': return 'bell';
+    case 'process_state_changed': return `${evt.old} -> ${evt.new}`;
+    case 'screen_changed': return `${evt.changed_rows.length} rows changed`;
+    default: return evt.type;
+  }
+}
+
+function getBadgeClass(tool) {
+  if (tool.includes('send_key')) return 'badge-input';
+  if (tool.includes('mouse')) return 'badge-mouse';
+  if (tool.includes('read') || tool.includes('show') || tool.includes('status') || tool.includes('poll') || tool.includes('scroll') || tool.includes('select')) return 'badge-read';
+  if (tool.includes('create') || tool.includes('destroy') || tool.includes('list')) return 'badge-lifecycle';
+  if (tool.includes('event')) return 'badge-other';
+  return 'badge-other';
+}
+
+function shortToolName(tool) {
+  return tool.replace('terminal_', '').replace('event:', '');
+}
+
+function escapeHtml(str) {
+  const div = document.createElement('div');
+  div.textContent = str;
+  return div.innerHTML;
+}
+
+// --- Init ---
+connect();
+</script>
+</body>
+</html>

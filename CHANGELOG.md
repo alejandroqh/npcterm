@@ -4,6 +4,30 @@ All notable changes to NPCterm39 will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [v1.3.0] - 2026-04-08
+
+### Added
+
+- Built-in web debug viewer with live terminal rendering, cursor tracking, and full color support via WebSocket
+- Activity log sidebar in the viewer showing every MCP tool call with timestamps, parameters, and color-coded categories
+- 3 new MCP tools: `viewer_start`, `viewer_stop`, `viewer_open` for on-demand viewer control
+- `viewer_start` auto-probes ports 8039-8049 if the default port is busy
+- `viewer_open` starts the viewer and opens the system browser in one call (macOS, Linux, Windows)
+- Graceful shutdown support for the viewer server via oneshot channel
+- Viewer dirty-row tracking independent from agent reads and tick events
+- "For Agent Builders" section in README highlighting token-efficient patterns
+- "Debug Viewer" section in README
+- Demo script at `docs/demo-script.md` for recording showcase videos
+
+### Changed
+
+- Viewer is now on-demand (started via MCP tools) instead of auto-starting at launch
+- Default viewer port changed from 3939 to 8039
+- Viewer binds to `127.0.0.1` (localhost only) instead of `0.0.0.0`
+- Removed `--port` and `--no-viewer` CLI flags (replaced by MCP tool control)
+- All HTML UI elements now use monospace font consistently
+- Tool count updated from 14 to 17 across README and architecture docs
+
 ## [v1.2.0] - 2026-04-07
 
 ### Changed

@@ -1,0 +1,44 @@
+{
+  "id": "npcterm",
+  "name": "npcterm",
+  "description": "Headless, in-memory terminal emulator for AI agents. Full ANSI/VT100 emulation with PTY spawning.",
+  "version": "1.3.0",
+  "contracts": {
+    "tools": [
+      "terminal_create",
+      "terminal_destroy",
+      "terminal_list",
+      "terminal_send_key",
+      "terminal_send_keys",
+      "terminal_mouse",
+      "terminal_read_screen",
+      "terminal_show_screen",
+      "terminal_read_rows",
+      "terminal_read_region",
+      "terminal_status",
+      "terminal_poll_events",
+      "terminal_select",
+      "terminal_scroll",
+      "viewer_start",
+      "viewer_stop",
+      "viewer_open"
+    ]
+  },
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "binaryPath": {
+        "type": "string",
+        "description": "Path to the npcterm binary. Defaults to 'npcterm' (must be in PATH)."
+      }
+    }
+  },
+  "uiHints": {
+    "binaryPath": {
+      "label": "Binary path",
+      "placeholder": "npcterm",
+      "help": "Absolute path to the npcterm binary, or leave empty to use PATH"
+    }
+  }
+}

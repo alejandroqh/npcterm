@@ -74,6 +74,11 @@ pub struct TerminalGrid {
     /// Track which rows changed since last agent read (independent from tick)
     read_dirty_rows: Vec<bool>,
     read_dirty_flag: bool,
+    /// Track which rows changed since last viewer broadcast (independent from tick and agent)
+    #[cfg(feature = "viewer")]
+    viewer_dirty_rows: Vec<bool>,
+    #[cfg(feature = "viewer")]
+    viewer_dirty_flag: bool,
     /// Bell character received
     pub bell_pending: bool,
 }
@@ -126,6 +131,10 @@ impl TerminalGrid {
             dirty_flag: false,
             read_dirty_rows: vec![true; rows],
             read_dirty_flag: true,
+            #[cfg(feature = "viewer")]
+            viewer_dirty_rows: vec![true; rows],
+            #[cfg(feature = "viewer")]
+            viewer_dirty_flag: true,
             bell_pending: false,
         }
     }
@@ -214,20 +223,41 @@ impl TerminalGrid {
         self.read_dirty_flag
     }
 
+    /// Take viewer-dirty rows (returns changed indices and clears viewer tracking)
+    #[cfg(feature = "viewer")]
+    pub fn take_viewer_dirty_rows(&mut self) -> Vec<usize> {
+        self.viewer_dirty_flag = false;
+        Self::drain_dirty_vec(&mut self.viewer_dirty_rows)
+    }
+
+    /// Check if any rows have changed since last viewer broadcast
+    #[cfg(feature = "viewer")]
+    pub fn has_viewer_dirty(&self) -> bool {
+        self.viewer_dirty_flag
+    }
+
     fn mark_dirty(&mut self, row: usize) {
         if row < self.dirty_rows.len() {
             self.dirty_rows[row] = true;
             self.read_dirty_rows[row] = true;
+            #[cfg(feature = "viewer")]
+            { self.viewer_dirty_rows[row] = true; }
         }
         self.dirty_flag = true;
         self.read_dirty_flag = true;
+        #[cfg(feature = "viewer")]
+        { self.viewer_dirty_flag = true; }
     }
 
     fn mark_all_dirty(&mut self) {
         self.dirty_rows.fill(true);
         self.read_dirty_rows.fill(true);
+        #[cfg(feature = "viewer")]
+        self.viewer_dirty_rows.fill(true);
         self.dirty_flag = true;
         self.read_dirty_flag = true;
+        #[cfg(feature = "viewer")]
+        { self.viewer_dirty_flag = true; }
     }
 
     /// Get the currently active character set
