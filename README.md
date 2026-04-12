@@ -54,24 +54,14 @@ The binary will be at `target/release/npcterm`.
 
 ### OpenClaw
 
-[OpenClaw](https://openclaw.ai/) has built-in MCP support. Install NPCterm as a plugin directly:
+[OpenClaw](https://openclaw.ai/) — install NPCterm from the marketplace:
 
 ```bash
-# From the GitHub repo
-openclaw plugins install https://github.com/alejandroqh/npcterm.git
-
-# Or from a local clone
-git clone https://github.com/alejandroqh/npcterm.git
-openclaw plugins install ./npcterm
+openclaw plugins install npcterm --marketplace https://github.com/alejandroqh/openclaw-marketplace --dangerously-force-unsafe-install
+openclaw gateway restart
 ```
 
-Once installed, all 17 NPCterm tools will be available to your OpenClaw agent as `npcterm__terminal_create`, `npcterm__terminal_send_keys`, etc.
-
-Verify the server is registered with:
-
-```bash
-openclaw mcp list
-```
+All 17 NPCterm tools will be available to your OpenClaw agent.
 
 ### Claude Desktop / Claude Code
 
