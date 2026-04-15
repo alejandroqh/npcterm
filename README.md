@@ -10,6 +10,13 @@ NPCterm gives AI agents **full terminal access**. The ability to spawn shells, r
 
 > **Use with precautions.** A terminal is an unrestricted execution environment. Any command the agent can type, the system will run. This includes installing software, modifying files, accessing the network, and anything else a shell user can do. Deploy NPCterm in sandboxed or controlled environments, and always apply the principle of least privilege. Do not expose it to untrusted agents without appropriate safeguards.
 
+<p align="center">
+  <img src="docs/btop.png" alt="btop running inside NPCterm39" width="600">
+</p>
+
+Full system monitoring with `btop`, launched, read, and navigated entirely by an AI agent through MCP tools.
+
+
 ## Features
 
 - **Full ANSI/VT100 terminal emulation** with PTY spawning via `portable-pty`
@@ -143,14 +150,6 @@ NPCterm is an MCP server. It communicates over stdin/stdout using JSON-RPC. To u
 </p>
 
 NPCterm gives AI agents full TUI interaction: opening, navigating, and closing interactive programs like `vim`, `htop`, `less`, or any curses-based application.
-
-### Example: btop running inside NPCterm, controlled by an agent
-
-<p align="center">
-  <img src="docs/btop.png" alt="btop running inside NPCterm39" width="600">
-</p>
-
-Full system monitoring with `btop`, launched, read, and navigated entirely by an AI agent through MCP tools.
 
 ## Debug Viewer
 
