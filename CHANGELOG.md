@@ -4,6 +4,16 @@ All notable changes to NPCterm39 will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [v1.3.2] - 2026-04-16
+
+### Added
+
+- OpenClaw native plugin (`openclaw-plugin/`)
+
+### Changed
+
+- Updated TurboMCP dependency to 3.0.14
+
 ## [v1.3.0] - 2026-04-08
 
 ### Added
