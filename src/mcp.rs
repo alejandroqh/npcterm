@@ -1,5 +1,17 @@
 use std::sync::{Arc, Mutex, MutexGuard};
 
+// Compile-time check: MCP server version must match Cargo.toml
+const _: () = {
+    let cargo = env!("CARGO_PKG_VERSION").as_bytes();
+    let mcp = b"1.3.1";
+    assert!(cargo.len() == mcp.len(), "MCP server version does not match Cargo.toml — update #[server(version)] below");
+    let mut i = 0;
+    while i < cargo.len() {
+        assert!(cargo[i] == mcp[i], "MCP server version does not match Cargo.toml — update #[server(version)] below");
+        i += 1;
+    }
+};
+
 use schemars::JsonSchema;
 use serde::Deserialize;
 use serde_json::json;
@@ -136,7 +148,7 @@ fn open_browser(url: &str) -> Result<(), String> {
     Ok(())
 }
 
-#[server(name = "npcterm39", version = "1.3.0")]
+#[server(name = "npcterm39", version = "1.3.1")]
 impl NpcTermServer {
     /// Create a new terminal instance. Returns {id, cols, rows}. The id is required for all subsequent terminal operations. Available sizes: 80x24 (default), 120x40, 160x40, 200x50.
     #[tool]
