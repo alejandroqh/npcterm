@@ -33,15 +33,19 @@ Full system monitoring with `btop`, launched, read, and navigated entirely by an
 
 ## Install
 
-### Option 1: Install with Cargo (recommended)
-
 ```bash
 cargo install npcterm
 ```
 
-This installs `npcterm` to your Cargo bin directory (usually `~/.cargo/bin/`), making it available system-wide.
+### Install for any AI CLI / IDE
 
-### Option 2: Download pre-built binaries
+Installs the binary and auto-configures it for every MCP client detected: **Claude Code**, **Claude Desktop**, **Codex**, **OpenCode**, **OpenClaw**.
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/alejandroqh/marketplace/main/h39.sh | sh
+```
+
+### Pre-built binaries
 
 Pre-built binaries are available in the [`dist/`](dist/) directory for:
 
@@ -51,7 +55,7 @@ Pre-built binaries are available in the [`dist/`](dist/) directory for:
 
 Download the binary for your platform and place it somewhere in your `PATH`.
 
-### Option 3: Build from source
+### Build from source
 
 ```bash
 cargo build --release
@@ -59,26 +63,9 @@ cargo build --release
 
 The binary will be at `target/release/npcterm`.
 
-### OpenClaw
+### MCP config
 
-[OpenClaw](https://openclaw.ai/) — install NPCterm from the marketplace:
-
-```bash
-openclaw plugins install npcterm --marketplace https://github.com/alejandroqh/openclaw-marketplace --dangerously-force-unsafe-install
-openclaw gateway restart
-```
-
-All 17 NPCterm tools will be available to your OpenClaw agent.
-
-### Claude Desktop / Claude Code
-
-First install NPCterm:
-
-```bash
-cargo install npcterm
-```
-
-Then add it to your MCP configuration:
+Add to your MCP client config:
 
 ```json
 {
@@ -89,8 +76,6 @@ Then add it to your MCP configuration:
   }
 }
 ```
-
-If you downloaded a pre-built binary instead, use the full path as the `"command"` value.
 
 ## Usage
 
