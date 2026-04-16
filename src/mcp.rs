@@ -3,7 +3,7 @@ use std::sync::{Arc, Mutex, MutexGuard};
 // Compile-time check: MCP server version must match Cargo.toml
 const _: () = {
     let cargo = env!("CARGO_PKG_VERSION").as_bytes();
-    let mcp = b"1.3.1";
+    let mcp = b"1.3.2";
     assert!(cargo.len() == mcp.len(), "MCP server version does not match Cargo.toml — update #[server(version)] below");
     let mut i = 0;
     while i < cargo.len() {
@@ -148,7 +148,7 @@ fn open_browser(url: &str) -> Result<(), String> {
     Ok(())
 }
 
-#[server(name = "npcterm39", version = "1.3.1")]
+#[server(name = "npcterm39", version = "1.3.2")]
 impl NpcTermServer {
     /// Create a new terminal instance. Returns {id, cols, rows}. The id is required for all subsequent terminal operations. Available sizes: 80x24 (default), 120x40, 160x40, 200x50.
     #[tool]
