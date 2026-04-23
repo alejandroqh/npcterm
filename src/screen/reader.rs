@@ -5,19 +5,37 @@ use crate::terminal::cell::TerminalCell;
 use crate::terminal::grid::TerminalGrid;
 
 /// Find the index past the last non-whitespace cell (0 if row is all spaces)
+/// Properly handles wide characters by including their trailing placeholder cells
 fn trim_end_index(row: &[TerminalCell], cols: usize) -> usize {
-    for i in (0..cols.min(row.len())).rev() {
+    let limit = cols.min(row.len());
+    let mut i = limit;
+    while i > 0 {
+        i -= 1;
         if row[i].c != ' ' {
+            // Found a non-space character, but check if it's a trailing cell of a wide char
+            if row[i].wide && i + 1 < limit && row[i + 1].c == ' ' {
+                // This is a trailing cell of a wide char - include it and continue
+                i += 1;
+            }
             return i + 1;
         }
+        // It's a space - keep going
     }
     0
 }
 
 /// Write trimmed row cells directly into output (no intermediate String)
+/// Skips trailing cells of wide characters to avoid duplicate space characters
 fn push_row_cells(output: &mut String, row: &[TerminalCell], end: usize) {
-    for cell in row.iter().take(end) {
+    let mut i = 0;
+    while i < end {
+        let cell = &row[i];
         output.push(cell.c);
+        if cell.wide && i + 1 < end {
+            i += 2; // Skip the trailing placeholder cell
+        } else {
+            i += 1;
+        }
     }
 }
 
@@ -137,9 +155,17 @@ pub fn read_region_text(
     for y in r1..r2 {
         if let Some(row) = screen_rows.get(y) {
             let _ = write!(output, "{:02} ", y);
-            for x in c1..c2 {
+            let mut x = c1;
+            while x < c2 {
                 if let Some(cell) = row.get(x) {
                     output.push(cell.c);
+                    if cell.wide && x + 1 < c2 {
+                        x += 2; // Skip trailing cell of wide char
+                    } else {
+                        x += 1;
+                    }
+                } else {
+                    x += 1;
                 }
             }
             output.push('\n');
@@ -157,8 +183,18 @@ pub fn show_screen_text(grid: &TerminalGrid) -> String {
 
     let screen_rows = grid.get_rows();
     for row in screen_rows.iter().take(rows) {
-        for cell in row.iter().take(cols) {
-            output.push(cell.c);
+        let mut x = 0;
+        while x < cols {
+            if let Some(cell) = row.get(x) {
+                output.push(cell.c);
+                if cell.wide && x + 1 < cols {
+                    x += 2; // Skip trailing cell of wide char
+                } else {
+                    x += 1;
+                }
+            } else {
+                x += 1;
+            }
         }
         output.push('\n');
     }
@@ -185,14 +221,34 @@ pub fn render_scrollback(
             let _ = write!(output, "{:02} ", y);
         }
         if line_idx < scrollback_len {
-            for cell in scrollback[line_idx].iter().take(cols) {
-                output.push(cell.c);
+            let mut x = 0;
+            while x < cols {
+                if let Some(cell) = scrollback[line_idx].get(x) {
+                    output.push(cell.c);
+                    if cell.wide && x + 1 < cols {
+                        x += 2;
+                    } else {
+                        x += 1;
+                    }
+                } else {
+                    x += 1;
+                }
             }
         } else {
             let screen_idx = line_idx - scrollback_len;
             if let Some(row) = screen.get(screen_idx) {
-                for cell in row.iter().take(cols) {
-                    output.push(cell.c);
+                let mut x = 0;
+                while x < cols {
+                    if let Some(cell) = row.get(x) {
+                        output.push(cell.c);
+                        if cell.wide && x + 1 < cols {
+                            x += 2;
+                        } else {
+                            x += 1;
+                        }
+                    } else {
+                        x += 1;
+                    }
                 }
             }
         }
@@ -258,5 +314,16 @@ pub fn append_scrollback_lines(
 
 fn line_to_string(cells: &[TerminalCell]) -> String {
     let end = trim_end_index(cells, cells.len());
-    cells[..end].iter().map(|c| c.c).collect()
+    let mut output = String::with_capacity(end);
+    let mut i = 0;
+    while i < end {
+        let cell = &cells[i];
+        output.push(cell.c);
+        if cell.wide && i + 1 < end {
+            i += 2; // Skip trailing cell of wide char
+        } else {
+            i += 1;
+        }
+    }
+    output
 }
