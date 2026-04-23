@@ -223,6 +223,9 @@ NPCterm provides **unrestricted shell access** to whatever agent connects to it.
 - **Do not run as root.** The PTY inherits the permissions of the NPCterm process.
 - **Treat this as you would SSH access.** If you wouldn't give the agent an SSH session to the machine, don't give it NPCterm either.
 
+## Contributors
+@cacaview
+
 ## License
 
 Apache 2
