@@ -204,6 +204,31 @@ impl NpcTermServer {
         Ok(json!({ "terminals": list }).to_string())
     }
 
+    /// Forward the terminal to an external terminal emulator (Windows Terminal, Terminal.app, gnome-terminal, etc.).
+    /// This opens the user's default terminal attached to the PTY, allowing applications that require
+    /// direct terminal control (like Textual TUIs) to work correctly.
+    #[tool]
+    async fn terminal_forward(
+        &self,
+        #[description("Terminal ID")] id: String,
+        #[description("Terminal emulator to use (auto-detected if None: Windows Terminal, Terminal.app, or detected Linux terminal)")] emulator: Option<String>,
+    ) -> Result<String, ToolError> {
+        let _ = emulator; // Reserved for future use (emulator preference)
+        let mut reg = self.lock_registry()?;
+        let instance = get_instance(&mut reg, &id)?;
+        match instance.forward_terminal() {
+            Ok(terminal_name) => {
+                self.log_interaction("terminal_forward", Some(&id), json!({}), true, Some(format!("launched {}", terminal_name)));
+                Ok(json!({ "success": true, "terminal": terminal_name }).to_string())
+            }
+            Err(e) => {
+                let msg = format!("Failed to launch terminal: {}", e);
+                self.log_interaction("terminal_forward", Some(&id), json!({}), false, Some(msg.clone()));
+                Err(ToolError::new(msg))
+            }
+        }
+    }
+
     /// Send a single keystroke. Supports: a-z, Enter, Tab, Escape, Backspace, Delete, arrows, Home, End, PageUp, PageDown, F1-F12, Ctrl+key, Alt+key, space. For multiple keystrokes or text input, use terminal_send_keys instead.
     #[tool]
     async fn terminal_send_key(

@@ -377,6 +377,29 @@ impl TerminalInstance {
         self.cached_process_name.clone()
     }
 
+    /// Forward the terminal to an external terminal emulator
+    ///
+    /// Returns the name of the terminal emulator that was launched, or an error
+    pub fn forward_terminal(&self) -> std::io::Result<String> {
+        use crate::terminal::forwarder;
+
+        let slave_name = self.emulator.get_slave_name()
+            .map(|p| p.to_string_lossy().to_string())
+            .ok_or_else(|| std::io::Error::new(
+                std::io::ErrorKind::Unsupported,
+                "PTY forwarding is only supported on Unix-like systems",
+            ))?;
+
+        let pid = self.emulator.get_child_pid()
+            .ok_or_else(|| std::io::Error::new(
+                std::io::ErrorKind::Other,
+                "Child process not available",
+            ))?;
+
+        let result = forwarder::launch(&slave_name, pid)?;
+        Ok(result.terminal_name)
+    }
+
     // --- Viewer support ---
 
     /// Get a reference to the grid (for viewer span compression)

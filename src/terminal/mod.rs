@@ -3,3 +3,4 @@ pub mod grid;
 pub mod ansi_handler;
 pub mod emulator;
 pub mod selection;
+pub mod forwarder;

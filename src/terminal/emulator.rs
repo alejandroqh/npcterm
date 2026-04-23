@@ -52,6 +52,11 @@ pub struct TerminalEmulator {
     pub last_output_time: Option<Instant>,
     /// Cached exit status
     pub exit_code: Option<i32>,
+    /// PTY slave name (Unix only, for terminal forwarding)
+    #[cfg(unix)]
+    pub slave_name: Option<std::path::PathBuf>,
+    /// Child process PID (for Windows terminal forwarding)
+    pub child_pid: Option<u32>,
 }
 
 impl TerminalEmulator {
@@ -135,6 +140,9 @@ impl TerminalEmulator {
         let grid = TerminalGrid::new(cols, rows, DEFAULT_MAX_SCROLLBACK);
         let parser = Parser::new();
 
+        // Get child PID before moving child into struct
+        let child_pid = child.process_id();
+
         Ok(Self {
             grid,
             parser,
@@ -144,7 +152,27 @@ impl TerminalEmulator {
             rx,
             last_output_time: None,
             exit_code: None,
+            #[cfg(unix)]
+            slave_name: pty_master.tty_name(),
+            child_pid,
         })
+    }
+
+    /// Get the PTY slave name (Unix) or None on Windows
+    #[cfg(unix)]
+    pub fn get_slave_name(&self) -> Option<&std::path::PathBuf> {
+        self.slave_name.as_ref()
+    }
+
+    /// Get the PTY slave name (returns None on Windows)
+    #[cfg(not(unix))]
+    pub fn get_slave_name(&self) -> Option<&std::path::PathBuf> {
+        None
+    }
+
+    /// Get the child process ID
+    pub fn get_child_pid(&self) -> Option<u32> {
+        self.child_pid
     }
 
     /// Read output from PTY and process through ANSI parser.
