@@ -224,7 +224,7 @@ NPCterm provides **unrestricted shell access** to whatever agent connects to it.
 - **Treat this as you would SSH access.** If you wouldn't give the agent an SSH session to the machine, don't give it NPCterm either.
 
 ## Contributors
-@cacaview
+[@cacaview](https://github.com/cacaview)
 
 ## License
 
