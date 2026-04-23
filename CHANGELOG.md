@@ -4,6 +4,13 @@ All notable changes to NPCterm39 will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [v1.3.3] - 2026-04-23
+
+### Fixed
+
+- `terminal_send_keys` schema resolution error in strict MCP clients (e.g. OpenClaw): the generated JSON Schema emitted a `$ref: "#/$defs/KeyInput"` whose `$defs` block was nested under the `input` property rather than hoisted to the schema root, making the reference unresolvable. `KeyInput` is now marked `#[schemars(inline)]` so its schema is inlined directly under `items`, eliminating the `$ref`/`$defs` pair entirely.
+- Wide character (CJK/emoji) rendering in screen reader output — trailing placeholder cells of 2-column characters were being emitted as literal spaces, causing `中文测试` to appear as `中 文 测 试`. (Thanks @cacaview, #1)
+
 ## [v1.3.2] - 2026-04-16
 
 ### Added
