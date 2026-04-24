@@ -383,20 +383,27 @@ impl TerminalInstance {
     pub fn forward_terminal(&self) -> std::io::Result<String> {
         use crate::terminal::forwarder;
 
-        let slave_name = self.emulator.get_slave_name()
-            .map(|p| p.to_string_lossy().to_string())
-            .ok_or_else(|| std::io::Error::new(
-                std::io::ErrorKind::Unsupported,
-                "PTY forwarding is only supported on Unix-like systems",
-            ))?;
-
         let pid = self.emulator.get_child_pid()
             .ok_or_else(|| std::io::Error::new(
                 std::io::ErrorKind::Other,
                 "Child process not available",
             ))?;
 
+        // On Unix, we need the PTY slave name. On Windows, only the PID is needed.
+        #[cfg(unix)]
+        let slave_name = self.emulator.get_slave_name()
+            .map(|p| p.to_string_lossy().to_string())
+            .ok_or_else(|| std::io::Error::new(
+                std::io::ErrorKind::Unsupported,
+                "PTY slave name not available",
+            ))?;
+
+        #[cfg(unix)]
         let result = forwarder::launch(&slave_name, pid)?;
+
+        #[cfg(not(unix))]
+        let result = forwarder::launch("", pid)?;
+
         Ok(result.terminal_name)
     }
 
