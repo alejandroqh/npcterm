@@ -14,6 +14,8 @@ use turbomcp_server::ProtocolVersion;
 #[tokio::main(flavor = "current_thread")]
 async fn main() {
     // Parse CLI args
+    let env_no_markers = std::env::var("NPCTERM_NO_MARKERS").is_ok();
+    let mut cli_no_markers = false;
     let mut args = std::env::args().skip(1);
     while let Some(arg) = args.next() {
         match arg.as_str() {
@@ -21,8 +23,14 @@ async fn main() {
                 println!("npcterm {}", env!("CARGO_PKG_VERSION"));
                 return;
             }
+            "--no-markers" => {
+                cli_no_markers = true;
+            }
             _ => {}
         }
+    }
+    if env_no_markers || cli_no_markers {
+        crate::set_no_markers(true);
     }
 
     #[cfg(feature = "viewer")]
