@@ -459,17 +459,18 @@ impl TerminalInstance {
         let scrollback = self.emulator.grid.get_scrollback();
         let screen = self.emulator.grid.get_rows();
 
-        let extra = if with_coords { cols + 4 } else { cols + 1 };
-        let header_rows = if with_coords { 3 } else { 0 };
+        let show_markers = with_coords && !crate::no_markers_enabled();
+        let extra = if show_markers { cols + 4 } else { cols + 1 };
+        let header_rows = if show_markers { 3 } else { 0 };
         let mut output = String::with_capacity(extra * (rows + header_rows));
 
-        if with_coords {
+        if show_markers {
             reader::write_column_header(&mut output, cols);
         }
 
         reader::render_scrollback(
             &mut output, scrollback, screen,
-            self.scroll_offset, cols, rows, with_coords,
+            self.scroll_offset, cols, rows, show_markers,
         );
 
         output
